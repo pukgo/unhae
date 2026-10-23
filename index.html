@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>강호록</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fcfcfa; --card: #ffffff; --soft: #f3f2ee; --ink: #151515; --sub: #7b7a75;
+    --line: #e4e2dc; --deco: #d6d3cb; --gold: #a38552;
+    --serif: 'Noto Serif KR', serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.7 'Noto Sans KR', sans-serif; -webkit-font-smoothing: antialiased; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: none; }
+  .serif { font-family: var(--serif); }
+  .mut { color: var(--sub); }
+
+  /* 배경 장식: 구름 띠와 달 */
+  .deco { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .deco svg { position: absolute; }
+  .deco .tr { top: -20px; right: -40px; width: 520px; }
+  .deco .bl { bottom: -30px; left: -60px; width: 460px; }
+  .wrap, #toast, #gate { position: relative; z-index: 1; }
+
+  .btn { border: 1px solid var(--ink); padding: 7px 18px; font-size: 13px; background: var(--card); transition: background .15s, color .15s; }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.fill { background: var(--ink); color: var(--paper); }
+  .btn.fill:hover { background: #333; }
+  .btn.ghost { border-color: var(--line); color: var(--sub); }
+  .btn.ghost:hover { border-color: var(--ink); color: var(--paper); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn:disabled:hover { background: var(--card); color: var(--ink); }
+  .link { font-size: 13px; color: var(--sub); }
+  .link:hover { color: var(--ink); }
+  .link:disabled { opacity: .4; cursor: default; }
+
+  /* 입문 화면 */
+  .gate { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .gate-box { width: min(440px, 100%); background: var(--card); border: 1px solid var(--ink); box-shadow: 0 0 0 6px var(--card), 0 0 0 7px var(--ink); padding: 32px 28px; }
+  .gate-box .mk { width: 56px; height: 56px; margin-bottom: 16px; background: var(--ink); color: var(--paper); display: grid; place-items: center; font-family: var(--serif); font-size: 19px; font-weight: 700; }
+  .gate-box h1 { font-family: var(--serif); font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .gate-box .stack { display: grid; gap: 14px; margin-top: 20px; }
+  .gate-box .pick, .gate-box select, .gate-box textarea { width: 100%; min-width: 0; }
+  .gate-box .err { font-size: 13px; color: var(--ink); text-decoration: underline; min-height: 20px; }
+
+  /* 3단 */
+  .wrap { display: grid; grid-template-columns: 150px minmax(0, 640px) 250px; justify-content: center; gap: 0 48px; padding: 0 28px; }
+  nav.side { position: sticky; top: 0; align-self: start; padding: 48px 0; display: flex; flex-direction: column; }
+  nav.side button {
+    position: relative; display: flex; align-items: baseline; gap: 12px; padding: 9px 0 9px 14px;
+    color: var(--sub); border-left: 1px solid var(--line); text-align: left;
+  }
+  nav.side button i { font-style: normal; font-family: var(--serif); font-size: 13px; opacity: .5; }
+  nav.side button:hover { color: var(--ink); }
+  nav.side button.on { color: var(--ink); border-left: 2px solid var(--ink); padding-left: 13px; font-weight: 500; }
+  nav.side button.on i { opacity: 1; }
+  nav.side .n { margin-left: auto; font-size: 11px; min-width: 18px; height: 18px; line-height: 18px; text-align: center; background: var(--ink); color: var(--paper); border-radius: 9px; padding: 0 5px; }
+  main { padding: 48px 0 96px; min-width: 0; }
+  aside { position: sticky; top: 0; align-self: start; padding: 48px 0; }
+
+  .ph { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--ink); }
+  .ph::after { content: ''; position: absolute; left: 0; right: 0; bottom: -5px; border-bottom: 1px solid var(--line); }
+  .ph h1 { font-family: var(--serif); font-size: 26px; font-weight: 600; letter-spacing: .06em; }
+  .tag { display: inline-block; font-size: 11px; border: 1px solid var(--ink); padding: 0 6px; line-height: 18px; vertical-align: 2px; white-space: nowrap; }
+  .tag.npc, .tag.g1 { border-color: var(--gold); color: var(--gold); }
+  .tag.g2 { background: var(--ink); color: var(--paper); }
+  .empty { padding: 32px 0; text-align: center; font-size: 13px; color: var(--sub); }
+
+  /* 소문 */
+  .av {
+    width: 40px; height: 40px; border: 1px solid var(--ink); border-radius: 50%; background: var(--card); flex-shrink: 0; overflow: hidden;
+    display: grid; place-items: center; font-family: var(--serif); font-weight: 600; font-size: 16px;
+  }
+  .av.npc { border-color: var(--gold); color: var(--gold); }
+  .av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .compose { display: flex; gap: 14px; padding: 22px 0 18px; border-bottom: 1px solid var(--line); }
+  .compose > div:last-child { flex: 1; }
+  .compose textarea { width: 100%; border: none; background: none; resize: none; min-height: 56px; outline: none; }
+  .compose .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: var(--sub); }
+  .filters { display: flex; gap: 24px; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; }
+  .filters button { padding: 12px 0; color: var(--sub); border-bottom: 1px solid transparent; margin-bottom: -1px; }
+  .filters button.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .post { display: flex; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .post > div:last-child { flex: 1; min-width: 0; }
+  .post .h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 13px; }
+  .post .h .nm { font-weight: 700; font-size: 15px; }
+  .nm:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .post time { margin-left: auto; color: var(--sub); font-size: 12px; }
+  .post p { margin: 4px 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .alias { font-family: var(--serif); color: var(--gold); }
+  .acts { display: flex; gap: 22px; font-size: 12px; color: var(--sub); }
+  .acts button:hover { color: var(--ink); }
+  .acts .on { color: var(--ink); font-weight: 700; }
+  .post.sys { background: linear-gradient(90deg, var(--soft), transparent 70%); padding-left: 0; }
+  .post.sys .lbl {
+    width: 40px; flex-shrink: 0; display: grid; place-items: center; height: 40px;
+    font-family: var(--serif); font-size: 12px; letter-spacing: .04em; color: var(--paper); background: var(--ink);
+  }
+  .post.sys p { font-family: var(--serif); margin-top: 8px; }
+  .post.reply { padding-left: 54px; }
+  .back { margin: 0 0 14px; }
+
+  /* 수련 */
+  .realm { padding: 32px 0 0; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  .realm .lbl { font-size: 12px; color: var(--sub); letter-spacing: .12em; }
+  .realm .big { font-family: var(--serif); font-size: 48px; font-weight: 700; line-height: 1.15; }
+  .realm .big small { font-size: 18px; font-weight: 400; margin-left: 10px; color: var(--sub); }
+  .realm .qi { text-align: right; }
+  .realm .qi b { font-family: var(--serif); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meter { height: 3px; background: var(--line); margin: 18px 0 8px; }
+  .meter i { display: block; height: 100%; background: var(--ink); }
+  .under { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .ladder { display: grid; grid-template-columns: var(--cols); gap: 5px; margin-top: 18px; }
+  .ladder .gap { border-left: 1px dashed var(--deco); margin-left: 3px; }
+  .rung { text-align: center; }
+  .rung .ticks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-bottom: 6px; }
+  .rung .ticks i { height: 8px; border: 1px solid var(--ink); }
+  .rung .ticks i.f { background: var(--ink); }
+  .rung span { font-family: var(--serif); font-size: 12px; color: var(--sub); }
+  .rung.cur span { color: var(--ink); font-weight: 700; }
+  .rung.lock .ticks i { border-style: dashed; border-color: var(--deco); }
+  .rung.lock span { color: var(--deco); }
+  .path { list-style: none; display: grid; grid-template-columns: repeat(var(--n, 8), 1fr); border-top: 1px solid var(--line); }
+  .path li { position: relative; padding: 14px 4px 0; text-align: center; }
+  .path li i { display: block; width: 9px; height: 9px; margin: -19px auto 10px; border: 1px solid var(--ink); background: var(--paper); transform: rotate(45deg); }
+  .path li.f i { background: var(--ink); }
+  .path li.nx i { background: var(--gold); border-color: var(--gold); }
+  .path span { display: block; font-family: var(--serif); font-size: 13px; line-height: 1.35; word-break: keep-all; }
+  .path li:not(.f):not(.nx) span { color: var(--sub); }
+  .path li.nx span { font-weight: 700; }
+  .path small { display: block; font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .bt { margin-top: 24px; border: 1px solid var(--ink); background: var(--card); padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .bt b { font-family: var(--serif); font-size: 17px; }
+  .bt p { font-size: 13px; color: var(--sub); }
+  .nums { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 28px; }
+  .nums div { padding: 16px 0; }
+  .nums div + div { padding-left: 20px; border-left: 1px solid var(--line); }
+  .nums small { display: block; font-size: 12px; color: var(--sub); }
+  .nums b { font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .sec { margin-top: 44px; }
+  .sec > h2 { font-family: var(--serif); font-size: 17px; font-weight: 600; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .sec > .desc { font-size: 13px; color: var(--sub); margin: -6px 0 14px; }
+  .opts { display: grid; grid-template-columns: repeat(var(--n, 3), 1fr); border: 1px solid var(--ink); background: var(--card); }
+  .opt { padding: 20px; text-align: left; display: flex; flex-direction: column; gap: 2px; transition: background .15s, color .15s; }
+  .opt + .opt { border-left: 1px solid var(--ink); }
+  .opt b { font-family: var(--serif); font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .opt small { font-size: 12px; color: var(--sub); }
+  .opt:hover { background: var(--ink); color: var(--paper); }
+  .opt:hover small { color: inherit; opacity: .7; }
+  .count { border: 1px solid var(--ink); background: var(--card); padding: 30px 20px; text-align: center; }
+  .count .big { font-family: var(--serif); font-size: 40px; letter-spacing: .06em; font-variant-numeric: tabular-nums; margin: 4px 0 10px; }
+
+  /* 비무 */
+  .card { border: 1px solid var(--ink); background: var(--card); padding: 18px 20px; }
+  .card + .card { margin-top: 12px; }
+  .card .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .moves { display: grid; gap: 6px; margin: 16px 0; }
+  .mv { display: grid; grid-template-columns: 44px repeat(3, 1fr); align-items: center; }
+  .mv span { font-size: 12px; color: var(--sub); }
+  .mv button { border: 1px solid var(--line); padding: 6px 0; font-family: var(--serif); font-size: 14px; }
+  .mv button + button { border-left: none; }
+  .mv button:hover { background: var(--soft); }
+  .mv button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .pick { border: none; border-bottom: 1px solid var(--line); background: none; padding: 4px 0; outline: none; min-width: 200px; }
+  .rule { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; align-items: center; }
+  .rule svg { width: 100%; height: auto; }
+  .rule dl { display: grid; gap: 14px; }
+  .rule dt { font-family: var(--serif); font-weight: 600; }
+  .rule dt span { font-size: 22px; margin-right: 8px; }
+  .rule dd { font-size: 13px; color: var(--sub); }
+  .note { font-size: 13px; color: var(--sub); border-left: 2px solid var(--line); padding-left: 14px; margin-top: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-weight: 500; color: var(--sub); text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--ink); white-space: nowrap; }
+  td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; vertical-align: top; }
+  td.w { font-family: var(--serif); font-size: 16px; font-weight: 600; white-space: nowrap; }
+  tr.mine td { background: var(--soft); }
+  .res { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .res > div:last-child { text-align: right; }
+  .res .win { font-family: var(--serif); font-size: 12px; margin: 0 6px; border: 1px solid var(--ink); padding: 0 4px; }
+  .dots { display: flex; gap: 5px; }
+  .dot { width: 9px; height: 9px; border: 1px solid var(--ink); border-radius: 50%; }
+  .dot.l { background: var(--ink); }
+  .dot.d { border-color: var(--deco); background: var(--deco); }
+
+  /* 서신 */
+  .mail { display: grid; grid-template-columns: 200px minmax(0, 1fr); border: 1px solid var(--ink); margin-top: 24px; background: var(--card); }
+  .threads { border-right: 1px solid var(--line); }
+  .threads button { display: block; width: 100%; text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .threads button.on { background: var(--soft); }
+  .threads b { display: block; font-size: 14px; font-weight: 500; }
+  .threads small { display: block; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .threads .unread b::after { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); margin-left: 8px; vertical-align: middle; }
+  .conv { display: flex; flex-direction: column; min-height: 460px; }
+  .conv .hd { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .conv .hd b { font-family: var(--serif); font-weight: 600; }
+  .msgs { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow: auto; max-height: 420px; }
+  .msg { max-width: 80%; }
+  .msg .body { border: 1px solid var(--line); background: var(--paper); padding: 10px 14px; white-space: pre-wrap; }
+  .msg.me { align-self: flex-end; }
+  .msg.me .body { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .msg.fly .body { background: var(--card); color: var(--sub); border: 1px dashed var(--ink); }
+  .msg small { display: block; font-size: 11px; color: var(--sub); margin-top: 4px; }
+  .msg.me small { text-align: right; }
+  .conv .in { border-top: 1px solid var(--line); display: flex; align-items: flex-end; padding: 10px 12px 10px 20px; gap: 12px; }
+  .conv textarea { flex: 1; border: none; background: none; resize: none; outline: none; height: 48px; }
+
+  /* 인물첩 */
+  .search { width: 100%; margin: 24px 0 0; border: none; border-bottom: 1px solid var(--line); background: none; padding: 8px 0; outline: none; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pc { display: flex; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--line); text-align: left; }
+  .grid .pc:nth-child(odd) { padding-right: 20px; border-right: 1px solid var(--line); }
+  .grid .pc:nth-child(even) { padding-left: 20px; }
+  .pc > div:last-child { min-width: 0; }
+  .pc .meta { font-size: 12px; color: var(--sub); }
+  .pc p { font-size: 13px; color: var(--sub); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pc:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
+  .book { margin-top: 18px; }
+  .book h3 { font-family: var(--serif); font-size: 14px; font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid var(--ink); }
+  .book-row { display: grid; grid-template-columns: 48px 92px minmax(0, 1fr) 90px; gap: 12px; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .book-row b { font-family: var(--serif); font-weight: 600; font-size: 14px; }
+  .book-row .owner { text-align: right; font-size: 12px; }
+  .prof { display: flex; gap: 22px; padding: 32px 0 24px; border-bottom: 1px solid var(--line); }
+  .prof h1 { font-family: var(--serif); font-size: 28px; font-weight: 600; line-height: 1.3; }
+  .seal-frame { width: 136px; height: 136px; flex-shrink: 0; border: 1px solid var(--ink); padding: 5px; background: var(--card); }
+  .seal-frame.npc { border-color: var(--gold); }
+  .seal-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .seal-ph {
+    width: 100%; height: 100%; border: 1px solid var(--ink); display: flex; align-items: center; justify-content: center;
+    writing-mode: vertical-rl; font-family: var(--serif); font-weight: 700; font-size: 26px; letter-spacing: .25em;
+  }
+  .quote { font-family: var(--serif); font-size: 16px; margin-top: 14px; padding-left: 14px; border-left: 2px solid var(--ink); }
+  .info { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; border-top: 1px solid var(--line); }
+  .info > div { display: flex; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .info dt { width: 80px; flex-shrink: 0; color: var(--sub); font-size: 13px; }
+  .prose { white-space: pre-wrap; }
+  .ties { list-style: none; border-top: 1px solid var(--line); }
+  .ties li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .ties .nm { font-weight: 700; }
+  .tie-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 16px; align-items: end; padding: 6px 0; }
+  .form input:disabled { color: var(--sub); }
+
+  /* 생활 */
+  .job { display: flex; gap: 22px; align-items: center; padding: 28px 0 24px; border-bottom: 1px solid var(--line); }
+  .job-hj { width: 64px; height: 64px; flex-shrink: 0; border: 1px solid var(--ink); display: grid; place-items: center; font-family: var(--serif); font-size: 30px; font-weight: 700; }
+  .job .lbl { font-size: 12px; color: var(--sub); letter-spacing: .12em; }
+  .job b { font-family: var(--serif); font-size: 24px; font-weight: 600; }
+  .job-side { display: flex; gap: 28px; text-align: right; }
+  .job-side small { display: block; font-size: 12px; color: var(--sub); }
+  .job-side b { font-size: 20px; font-family: inherit; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stam i { display: inline-block; width: 11px; height: 11px; border: 1px solid var(--ink); border-radius: 50%; margin-left: 5px; margin-top: 10px; }
+  .stam i.f { background: var(--ink); }
+  .opts.jobs .opt:nth-child(3n+1) { border-left: none; }
+  .opts.jobs .opt:nth-child(n+4) { border-top: 1px solid var(--ink); }
+
+  /* 운영 */
+  .tbl { overflow-x: auto; }
+  td input, td select { border: none; border-bottom: 1px solid var(--line); background: none; width: 100%; min-width: 64px; outline: none; padding: 2px 0; }
+  .field { width: 100%; border: 1px solid var(--line); background: var(--card); padding: 12px 14px; outline: none; resize: vertical; min-height: 80px; }
+  .form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 18px; }
+  .form label { display: flex; flex-direction: column; font-size: 12px; color: var(--sub); }
+  .form label > * { color: var(--ink); font-size: 14px; }
+  .form .wide { grid-column: 1 / -1; }
+  .form input, .form select { border: none; border-bottom: 1px solid var(--line); background: none; padding: 4px 0; outline: none; }
+  .field:focus, .pick:focus, .search:focus, td input:focus, .form input:focus { border-color: var(--ink); }
+  .subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 24px; }
+  .subtabs button { border: 1px solid var(--line); padding: 4px 12px; font-size: 13px; color: var(--sub); background: var(--card); }
+  .subtabs button:hover { border-color: var(--ink); color: var(--ink); }
+  .subtabs button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  table.cfg td { padding: 6px 6px; vertical-align: middle; }
+  table.cfg td input[type=number] { min-width: 52px; }
+  .cfg-card { border: 1px solid var(--line); background: var(--card); padding: 16px 18px; }
+  .cfg-card + .cfg-card { margin-top: 10px; }
+  .stage-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 14px; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); }
+  .chk input[type=number] { width: 56px; }
+  .savebar {
+    position: sticky; bottom: 0; z-index: 3; margin-top: 36px; padding: 14px 0; background: var(--paper);
+    border-top: 1px solid var(--ink); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px;
+  }
+  .addrow { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+  .addrow input { min-width: 0; width: 160px; }
+
+  /* 우측 */
+  aside .blk { margin-bottom: 36px; background: var(--paper); box-shadow: 0 0 0 10px var(--paper); }
+  aside h3 { font-family: var(--serif); font-size: 12px; font-weight: 400; letter-spacing: .16em; color: var(--sub); padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  aside .me .nm { font-family: var(--serif); font-size: 20px; font-weight: 600; }
+  aside .me p { font-size: 13px; color: var(--sub); }
+  aside .me .st { margin-top: 10px; font-size: 13px; color: var(--ink); }
+  aside .me select { margin-top: 12px; width: 100%; }
+  aside ul { list-style: none; font-size: 13px; }
+  aside li { padding: 7px 0; border-bottom: 1px solid var(--line); }
+  aside li:last-child { border-bottom: none; }
+  aside li small { display: block; color: var(--sub); font-size: 11px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
+    background: var(--ink); color: var(--paper); padding: 10px 18px; font-size: 13px; transition: opacity .2s, transform .2s; z-index: 40; max-width: 90vw;
+  }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  /* 팝업 */
+  .modal-bg { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(21, 21, 21, .45); animation: fade .2s; }
+  .modal {
+    width: min(400px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--card); text-align: center; padding: 32px 28px 24px;
+    border: 1px solid var(--ink); box-shadow: 0 0 0 6px var(--card), 0 0 0 7px var(--ink); animation: rise .25s;
+  }
+  .modal .mk { width: 64px; height: 64px; margin: 0 auto 14px; background: var(--ink); color: var(--paper); display: grid; place-items: center; font-family: var(--serif); font-size: 21px; font-weight: 700; }
+  .modal .kicker { font-size: 12px; color: var(--sub); letter-spacing: .2em; }
+  .modal h2 { font-family: var(--serif); font-size: 26px; font-weight: 700; margin-top: 2px; }
+  .modal .story { font-family: var(--serif); color: var(--sub); margin: 8px 0 18px; white-space: pre-wrap; }
+  .modal ul { list-style: none; border-top: 1px solid var(--line); text-align: left; }
+  .modal li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .arm-card { margin-top: 18px; padding: 18px 16px; border: 1px solid var(--gold); background: var(--paper); }
+  .arm-card b { display: block; font-family: var(--serif); font-size: 24px; font-weight: 700; margin: 6px 0 2px; }
+  .arm-card .k { font-size: 12px; color: var(--gold); letter-spacing: .14em; }
+  .arm-card p { font-family: var(--serif); font-size: 13px; color: var(--sub); margin-top: 8px; }
+  .modal .btn { margin-top: 22px; min-width: 120px; }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+  @media (max-width: 1100px) {
+    .wrap { grid-template-columns: 130px minmax(0, 1fr); gap: 0 36px; }
+    aside { display: none; }
+  }
+  @media (max-width: 760px) {
+    .deco .tr { width: 320px; right: -110px; }
+    .deco .bl { display: none; }
+    .wrap { grid-template-columns: minmax(0, 1fr); padding: 0 16px; }
+    main { padding: 28px 0 110px; }
+    nav.side {
+      position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 5; flex-direction: row; justify-content: space-around;
+      padding: 0; background: var(--paper); border-top: 1px solid var(--ink);
+    }
+    nav.side button { flex-direction: column; align-items: center; gap: 0; padding: 8px 2px 10px; border-left: none !important; font-size: 11px; }
+    nav.side button.on { padding-left: 2px; box-shadow: inset 0 2px var(--ink); }
+    nav.side .n { position: absolute; top: 2px; right: -8px; margin: 0; font-size: 10px; min-width: 16px; height: 16px; line-height: 16px; }
+    .realm { flex-direction: column; align-items: flex-start; }
+    .realm .qi { text-align: left; }
+    .ladder { grid-template-columns: repeat(4, 1fr); row-gap: 12px; }
+    .ladder .gap { display: none; }
+    .path { grid-template-columns: repeat(4, 1fr); row-gap: 14px; }
+    .bt { flex-direction: column; align-items: flex-start; }
+    .opts { grid-template-columns: 1fr; }
+    .opt + .opt, .opts.jobs .opt:nth-child(n) { border-left: none; border-top: 1px solid var(--ink); }
+    .opts .opt:first-child { border-top: none; }
+    .nums b { font-size: 17px; }
+    .rule { grid-template-columns: 1fr; }
+    .rule svg { max-width: 260px; margin: 0 auto; }
+    .mail { grid-template-columns: 1fr; }
+    .threads { border-right: none; display: flex; overflow-x: auto; border-bottom: 1px solid var(--line); }
+    .threads button { width: auto; min-width: 130px; border-bottom: none; border-right: 1px solid var(--line); }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .grid .pc:nth-child(n) { padding: 18px 0; border-right: none; }
+    .book-row { grid-template-columns: 48px minmax(0, 1fr) auto; }
+    .book-row .lore { grid-column: 1 / -1; }
+    .prof { flex-direction: column; gap: 16px; }
+    .seal-frame { width: 104px; height: 104px; }
+    .seal-ph { font-size: 20px; }
+    .info { grid-template-columns: minmax(0, 1fr); }
+    .tie-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .job { flex-wrap: wrap; }
+    .job-side { width: 100%; justify-content: flex-start; text-align: left; }
+    .res { grid-template-columns: 1fr; gap: 6px; }
+    .res > div:last-child { text-align: left; }
+    .form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div class="deco" aria-hidden="true">
+  <svg class="tr" viewBox="0 0 520 300" fill="none">
+    <circle cx="330" cy="120" r="96" stroke="#d6d3cb"/>
+    <circle cx="330" cy="120" r="88" stroke="#ebe9e3"/>
+    <g stroke="#cfcbc1" fill="#fcfcfa">
+      <rect x="150" y="70" width="320" height="22" rx="11"/>
+      <rect x="230" y="100" width="300" height="22" rx="11"/>
+      <rect x="190" y="130" width="230" height="22" rx="11"/>
+      <rect x="290" y="160" width="250" height="22" rx="11"/>
+      <rect x="250" y="190" width="150" height="22" rx="11"/>
+    </g>
+    <g stroke="#cfcbc1">
+      <circle cx="161" cy="81" r="5"/><circle cx="241" cy="111" r="5"/><circle cx="201" cy="141" r="5"/>
+      <circle cx="301" cy="171" r="5"/><circle cx="261" cy="201" r="5"/>
+    </g>
+    <g stroke="#a38552" stroke-opacity=".45">
+      <path d="M60 40 H300"/><path d="M110 48 H260"/><path d="M380 236 H520"/>
+    </g>
+  </svg>
+  <svg class="bl" viewBox="0 0 460 260" fill="none">
+    <path d="M0 260 L120 120 L190 190 L260 90 L380 260 Z" stroke="#d6d3cb" fill="#f6f5f1"/>
+    <path d="M60 260 L170 150 L240 210 L320 140 L420 260 Z" stroke="#cfcbc1" fill="#fcfcfa"/>
+    <g stroke="#cfcbc1" fill="#fcfcfa">
+      <rect x="-20" y="96" width="240" height="20" rx="10"/>
+      <rect x="40" y="124" width="200" height="20" rx="10"/>
+      <rect x="-10" y="152" width="150" height="20" rx="10"/>
+    </g>
+    <g stroke="#cfcbc1"><circle cx="210" cy="106" r="4.5"/><circle cx="230" cy="134" r="4.5"/><circle cx="130" cy="162" r="4.5"/></g>
+    <g stroke="#a38552" stroke-opacity=".45"><path d="M200 60 H420"/><path d="M250 68 H380"/></g>
+  </svg>
+</div>
+
+<div id="gate"></div>
+<div class="wrap" style="display:none">
+  <nav class="side" id="nav"></nav>
+  <main id="main"></main>
+  <aside id="aside"></aside>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(() => {
+  // ════════════════════════════════════════════
+  // 연결: Supabase 대시보드 > Project Settings > API 에서 복사
+  // ════════════════════════════════════════════
+  const SUPABASE_URL = 'https://gzgoqusxrauaovrflwoj.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_yJixKrs8slog1hcnrcOJQg_CFX5ozPN';
+  const SEAL_BUCKET = 'seals';
+
+  // ════════════════════════════════════════════
+  // 기본 설정: 처음 운영자가 접속하면 이 값이 settings 테이블에 저장되고,
+  // 그 뒤로는 운영 > 설정에서 바꾼 값을 쓴다
+  // ════════════════════════════════════════════
+  const REALMS = ['삼류', '이류', '일류', '절정', '초절정', '화경', '생사경', '자연경', '공허경', '여의경', '반선', '등선'];
+  const SUBS = ['초입', '소성', '대성'];
+  const TIERS = [
+    { name: '무림', from: 0, energy: '내공' },
+    { name: '초월', from: 7, energy: '내공', gate: '초월의 문', open: false },
+    { name: '선계', from: 10, energy: '진기', gate: '선계의 문', open: false },
+  ];
+  const BREAK_RATE = [95, 88, 78, 66, 55, 45, 36, 28, 21, 15, 10];
+  const SET = {
+    qiBase: 60, qiGrowth: 1.32, gainBase: 15, gainGrowth: 1.28, failLoss: 30,
+    pathBonus: 0.1, levelStep: 0.25, levelCap: 1, drawMargin: 0.25,
+    rateGather: 5, rateErrand: 8, armExtra: 15, armOwnType: 70, stamina: 3,
+  };
+  const RETREATS = [{ h: 1, luck: 10, dev: 3 }, { h: 4, luck: 15, dev: 8 }, { h: 12, luck: 22, dev: 15 }];
+  const WEAPONS = {
+    검: { trait: '정검(正劍)', kind: 'draw', param: 0.5, style: '흔들림 없는 균형형', path: '검도',
+      stages: ['검기', '검사', '검강', '신검합일', '검환', '이기어검술', '무형검', '심검'] },
+    창: { trait: '선수(先手)', kind: 'round', param: 1, style: '거리를 쥐는 선제형', path: '창법',
+      stages: ['창기', '창망', '창강', '신창합일', '창룡출해', '이기어창술', '무형창', '심창'] },
+    쌍도: { trait: '연환(連環)', kind: 'streak', param: 0.5, style: '몰아치는 연격형', path: '쌍도술',
+      stages: ['도기', '연환도', '도강', '쌍도합벽', '음양도륜', '이기어쌍도', '무형쌍인', '심인'] },
+    언월도: { trait: '일격(一擊)', kind: 'move', param: '공', style: '내리찍는 공격형', path: '언월도법',
+      stages: ['도기', '월인', '도강', '신도합일', '청룡언월', '이기어도술', '무형도', '심도'] },
+    부채: { trait: '허실(虛實)', kind: 'move', param: '허', style: '흐름을 꼬는 변칙형', path: '선법',
+      stages: ['선기', '선풍', '선강', '인선합일', '산화선', '이기어선술', '무형선', '심선'] },
+    우산: { trait: '차폐(遮蔽)', kind: 'move', param: '수', style: '막고 감추는 수비형', path: '산법',
+      stages: ['산기', '우막', '산강', '인산합일', '만천화우', '이기어산술', '무형산', '심산'] },
+    권갑: { trait: '불괴(不壞)', kind: 'shield', param: 1, style: '버티는 근접형', path: '권법',
+      stages: ['권기', '권경', '권강', '신권합일', '백보신권', '금강불괴', '무형권', '심권'] },
+  };
+  const PATH_NEED = [20, 50, 100, 180, 300, 480, 750, 1100];
+  const PATH_REALM = [1, 2, 3, 4, 5, 6, 7, 8];
+  const GRADES = [
+    { name: '명병', bonus: 0.1, odds: 75, unique: false },
+    { name: '보병', bonus: 0.2, odds: 22, unique: false },
+    { name: '신병', bonus: 0.3, odds: 3, unique: true },
+  ];
+  const A = (type, grade, name, lore) => ({ type, grade, name, lore });
+  const ARMS_LIST = [
+    A('검', '명병', '추수', '가을 물처럼 맑은 검신. 이름난 대장간의 솜씨다.'),
+    A('검', '명병', '칠성', '칼등에 일곱 별이 박혔다. 도가에서 즐겨 찬다.'),
+    A('검', '명병', '청강', '장판파에서 조운이 빼앗아 휘둘렀다는 검.'),
+    A('검', '보병', '용천', '구야자와 간장이 함께 벼렸다는 검.'),
+    A('검', '보병', '태아', '위엄의 검. 뽑아 들면 성 밖의 군사가 물러났다고 한다.'),
+    A('검', '보병', '어장', '생선 뱃속에 숨길 만큼 짧다. 전제가 이 검으로 오왕 요를 찔렀다.'),
+    A('검', '신병', '간장', '장인 간장이 아내 막야와 함께 벼린 자웅검의 수컷.'),
+    A('검', '신병', '막야', '간장의 짝. 두 자루는 서로를 부른다고 전한다.'),
+    A('검', '신병', '담로', '구야자가 벼린 다섯 명검의 으뜸. 어진 주인만 따른다.'),
+    A('창', '명병', '철혈', '피에 젖어도 녹슬지 않는다는 쇠창.'),
+    A('창', '명병', '비룡', '창끝이 용의 수염처럼 두 갈래로 갈라졌다.'),
+    A('창', '보병', '이화창', '양가창의 창. 휘두르면 배꽃이 흩날리듯 창영이 번진다.'),
+    A('창', '보병', '호두금창', '범의 머리를 새긴 금창. 서량 마초가 들었다.'),
+    A('창', '보병', '장팔사모', '한 길 여덟 자, 뱀처럼 굽은 날. 장비의 창이다.'),
+    A('창', '신병', '애각창', '조운의 창. 하늘 끝 땅 모서리에도 맞설 자가 없었다.'),
+    A('창', '신병', '낙일', '해를 떨어뜨렸다는 창. 이름 말고는 전하는 것이 없다.'),
+    A('쌍도', '명병', '쌍비', '두 자루가 나란히 난다.'),
+    A('쌍도', '명병', '형제도', '의형제가 한 자루씩 나눠 찼다는 한 쌍의 칼.'),
+    A('쌍도', '보병', '호접쌍도', '나비 날개처럼 겹쳐 휘두르는 남방의 쌍도.'),
+    A('쌍도', '보병', '일월', '해와 달을 새긴 한 쌍. 낮의 칼과 밤의 칼.'),
+    A('쌍도', '신병', '원앙도', '원앙처럼 두 자루가 함께 있어야만 날이 선다는 이야기 속의 칼.'),
+    A('언월도', '명병', '반월', '반달 모양의 날. 관도의 무관들이 즐겨 썼다.'),
+    A('언월도', '보병', '춘추대도', '춘추를 읽으며 칼을 갈았다는 장수의 대도.'),
+    A('언월도', '보병', '삼첨양인도', '세 갈래 끝에 양날. 이랑진군의 병기로 전한다.'),
+    A('언월도', '신병', '냉염거', '관우의 청룡언월도. 무게가 여든두 근이라 한다.'),
+    A('부채', '명병', '철골선', '살을 쇠로 댄 부채. 접으면 짧은 몽둥이가 된다.'),
+    A('부채', '명병', '청풍선', '맑은 바람이 인다는 비단 부채.'),
+    A('부채', '보병', '학우선', '학 깃털로 엮은 부채. 제갈량이 들고 군을 지휘했다.'),
+    A('부채', '보병', '산하선', '펼치면 산과 강이 그려져 있다.'),
+    A('부채', '신병', '파초선', '철선공주의 부채. 한 번 부치면 화염산의 불이 꺼진다.'),
+    A('우산', '명병', '청라산', '푸른 비단을 댄 우산. 살 사이에 침을 감췄다.'),
+    A('우산', '명병', '묵우', '먹빛 우산. 비 오는 밤에는 보이지 않는다.'),
+    A('우산', '보병', '천라산', '펼치면 하늘에 그물을 친 듯 암기를 막아 낸다.'),
+    A('우산', '보병', '천망', '하늘의 그물은 성기어도 새지 않는다.'),
+    A('우산', '신병', '혼원산', '마가 사천왕의 보물 우산. 펼치면 해와 달이 가려진다.'),
+    A('권갑', '명병', '흑철권', '검게 단련한 쇠 권갑.'),
+    A('권갑', '보병', '오금갑', '오금(烏金)을 두드려 만든 권갑. 칼날이 미끄러진다.'),
+    A('권갑', '보병', '뇌명', '내리칠 때마다 우레 소리가 난다.'),
+    A('권갑', '보병', '금강수', '소림 금강역사의 손을 본떠 만들었다.'),
+    A('권갑', '신병', '천잠수', '천잠사로 짠 장갑. 보검으로도 베지 못한다.'),
+  ];
+  const PLACES = ['폐관', '채집', '객잔 의뢰'];
+  const F = o => ({ min: 0, qiHours: 0, insight: 0, fame: 0, breakBonus: 0, path: false, drop: null, ...o });
+  const FORTUNES = [
+    F({ name: '고인의 동부', where: ['폐관'], w: 30, qiHours: 4, post: '폐관하던 동굴 안쪽에서 고인의 동부를 찾았다.' }),
+    F({ name: '천년하수오', where: ['폐관', '채집'], w: 15, qiHours: 4, breakBonus: 15, post: '천년 묵은 하수오를 캐어 먹었다.' }),
+    F({ name: '비급 잔권', where: ['폐관', '객잔 의뢰'], w: 20, insight: 40, post: '찢어진 비급 한 장을 주웠다.' }),
+    F({ name: '은거 고수의 가르침', where: ['객잔 의뢰'], w: 15, insight: 25, fame: 5, post: '길에서 만난 노인에게 한 수 배웠다.' }),
+    F({ name: '옛 무덤의 병기', where: ['채집'], w: 10, drop: [85, 15, 0], post: '무너진 옛 무덤에서 녹슬지 않은 병기를 찾았다.' }),
+    F({ name: '폐허가 된 대장간', where: ['채집'], w: 5, drop: [0, 90, 10], post: '버려진 대장간 화로 밑에서 병기를 찾았다.' }),
+    F({ name: '돈오(頓悟)', where: ['폐관'], min: 12, w: 5, insight: 60, path: true, post: '오랜 폐관 끝에 문득 깨달았다.' }),
+  ];
+  const JOBS = {
+    의원: { hj: '醫', work: '진료', gain: { fame: 6, silver: 20 }, craft: { 소환단: { 약초: 3 } } },
+    대장장이: { hj: '冶', work: '담금질', gain: { silver: 35 }, craft: { '정비한 무기': { 철광석: 2 } } },
+    숙수: { hj: '膳', work: '객잔 주방 일', gain: { silver: 25, fame: 3 }, craft: { 보양식: { 식재료: 3 } } },
+    상인: { hj: '商', work: '장사', gain: { silver: 50 }, craft: {} },
+    악사: { hj: '樂', work: '연주', gain: { fame: 10 }, craft: {} },
+    서생: { hj: '書', work: '필사', gain: { insight: 8, silver: 10 }, craft: { '비급 필사본': { 먹: 2 } } },
+  };
+  const ITEMS = {
+    약초: ['산에서 캔 약초', 6], 철광석: ['대장간에 쓰는 광석', 8], 식재료: ['강과 저자에서 구한 재료', 5], 먹: ['필사에 쓰는 먹', 7],
+    소환단: ['다음 돌파 성공률 +10%', 60], '정비한 무기': ['다음 비무 판정 +0.25', 50], 보양식: ['다음 폐관 내공 +20%', 40], '비급 필사본': ['깨달음 +30', 70],
+  };
+  const ERRANDS = [
+    ['잃어버린 고양이를 찾아 주었다', { silver: 15, fame: 4 }], ['표국 짐을 산 아래까지 날라 주었다', { silver: 30 }],
+    ['객잔 주인의 장부 정리를 도왔다', { silver: 20, insight: 3 }], ['길 잃은 아이를 마을까지 데려다주었다', { fame: 8 }],
+  ];
+  const MASTERY = ['견습', '일꾼', '숙련', '장인', '대가'], MASTERY_XP = [0, 10, 30, 60, 100];
+
+  const CFG = { REALMS, SUBS, TIERS, BREAK_RATE, SET, RETREATS, WEAPONS, PATH_NEED, PATH_REALM, GRADES, ARMS_LIST, FORTUNES, JOBS, ITEMS, ERRANDS, MASTERY, MASTERY_XP };
+  const DEFAULTS = structuredClone(CFG);
+  const replaceIn = (t, s) => { if (Array.isArray(t)) t.splice(0, t.length, ...s); else { Object.keys(t).forEach(k => delete t[k]); Object.assign(t, s); } };
+  // DB에 저장된 설정을 덮어씌운다. SET은 새로 생긴 항목이 빠지지 않도록 기본값과 합친다
+  function applySettings(data) {
+    if (!data || !Object.keys(data).length) return false;
+    Object.keys(CFG).forEach(k => {
+      if (data[k] === undefined) return;
+      replaceIn(CFG[k], k === 'SET' ? { ...DEFAULTS.SET, ...data.SET } : data[k]);
+    });
+    return true;
+  }
+
+  // ── 설정에서 파생되는 계산 ────────────────────
+  const MOVES = { 공: '攻', 수: '守', 허: '虛' };
+  const MOVE_RO = { 공: '攻으로', 수: '守로', 허: '虛로' };
+  const TRAIT_KINDS = {
+    draw: ['비긴 합 점수', p => `비긴 합도 ${p}점으로 칩니다`],
+    round: ['특정 합 승리', p => `${p}합에서 이기면 1.5점입니다`],
+    move: ['특정 초식 승리', p => `${MOVE_RO[p]} 이긴 합은 1.5점입니다`],
+    streak: ['연승 보너스', p => `두 합을 잇달아 이기면 ${p}점을 더 얻습니다`],
+    shield: ['패배 무효', p => `처음 진 합 ${p}개를 비긴 것으로 칩니다`],
+  };
+  const traitDesc = x => x && TRAIT_KINDS[x.kind] ? TRAIT_KINDS[x.kind][1](x.param) : '';
+  const USABLE = ['소환단', '정비한 무기', '보양식', '비급 필사본'];
+  const GAIN_LABEL = { silver: '은자', fame: '명성', insight: '깨달음' };
+  const rIdx = lv => Math.floor((lv - 1) / 3), sIdx = lv => (lv - 1) % 3;
+  const realm = lv => REALMS[rIdx(lv)] || '?';
+  const realmFull = lv => `${realm(lv)} ${SUBS[sIdx(lv)]}`;
+  const tierOf = (r, tiers = TIERS) => [...tiers].reverse().find(t => r >= t.from) || tiers[0];
+  const sealedAt = r => { const t = tierOf(r); return t.gate && !t.open ? t : null; };
+  const energy = lv => tierOf(rIdx(lv)).energy;
+  const needQi = lv => Math.round(SET.qiBase * SET.qiGrowth ** (lv - 1));
+  const gainQi = (hr, lv) => Math.round(hr * SET.gainBase * SET.gainGrowth ** (lv - 1));
+  const pathOf = w => ({ name: WEAPONS[w]?.path || w, stages: WEAPONS[w]?.stages || [] });
+  const gradeIdx = name => GRADES.findIndex(g => g.name === name);
+  const loreOf = name => (ARMS_LIST.find(a => a.name === name) || {}).lore || '';
+
+  // ════════════════════════════════════════════
+  // 데이터
+  // ════════════════════════════════════════════
+  let db, user = null, isAdmin = false, started = false;
+  let ocs = [], posts = [], replies = new Map(), duelsIn = [], duelsOut = [], results = [];
+  let me = null;                              // 지금 활동 중인 인물 id
+  const letters = new Map(), unread = new Set();
+
+  const by = id => ocs.find(o => o.id === id);
+  const canAct = o => !!(o && user && o.owner === user.id);
+  const mine = () => ocs.filter(canAct);
+  const todayKST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+
+  // 인물 한 줄 ↔ 화면에서 쓰는 객체. profile·life는 펼쳐서 쓰고 저장할 때 다시 묶는다
+  const PROFILE_KEYS = ['aff', 'bio', 'courtesy', 'age', 'gender', 'origin', 'master', 'quote', 'look', 'persona', 'story', 'ties', 'seal'];
+  const LIFE_KEYS = ['job', 'jobXp', 'stamina', 'day', 'bag', 'breakBonus', 'duelBuff', 'retreatBuff'];
+  const pickKeys = (o, ks) => Object.fromEntries(ks.filter(k => o[k] !== undefined).map(k => [k, o[k]]));
+  function fromRow(r) {
+    const o = {
+      ...r.profile, ...r.life, id: r.id, owner: r.owner, npc: r.npc, name: r.name, title: r.title, weapon: r.weapon,
+      lv: r.lv, qi: Number(r.qi), fame: r.fame, silver: r.silver, insight: r.insight, path: r.path, w: r.w, l: r.l, d: r.d, hours: r.hours,
+      retreat_hours: r.retreat_hours, retreat_until: r.retreat_until ? Date.parse(r.retreat_until) : null, arms: r.arms || [],
+    };
+    o.aff = o.aff || '무소속'; o.bag = o.bag || {}; o.jobXp = o.jobXp || 0; o.ties = o.ties || [];
+    o.stamina = o.stamina ?? SET.stamina; o.breakBonus = o.breakBonus || 0;
+    o.equip = o.arms.find(a => a.uid === r.equip) || null;
+    return o;
+  }
+  const toRow = o => ({
+    lv: o.lv, qi: o.qi, fame: o.fame, silver: o.silver, insight: o.insight, path: o.path, w: o.w, l: o.l, d: o.d, hours: o.hours,
+    retreat_hours: o.retreat_hours || null, retreat_until: o.retreat_until ? new Date(o.retreat_until).toISOString() : null,
+    profile: pickKeys(o, PROFILE_KEYS), life: pickKeys(o, LIFE_KEYS), arms: o.arms, equip: o.equip?.uid || null,
+  });
+
+  const ERR = { '23505': '이미 쓰이는 이름입니다.', '23514': '입력한 내용의 길이를 확인해 주세요.', '42501': '권한이 없습니다.' };
+  async function q(req) {
+    const { data, error } = await req;
+    if (error) { toast(ERR[error.code] || error.message); throw error; }
+    return data;
+  }
+  const saveOc = o => q(db.from('ocs').update(toRow(o)).eq('id', o.id));
+  const saveSettings = () => q(db.from('settings').update({ data: structuredClone(CFG), updated_at: new Date().toISOString() }).eq('id', 1));
+
+  const toPost = r => ({ id: r.id, kind: r.kind, oc: r.oc_id, body: r.body, t: r.created_at, reply_to: r.reply_to, likes: (r.reactions || []).map(x => x.oc_id) });
+  let settingsFound = false;
+  async function loadAll() {
+    const [set, ocRows, postRows] = await Promise.all([
+      q(db.from('settings').select('data').eq('id', 1).maybeSingle()),
+      q(db.from('ocs').select('*').order('created_at')),
+      q(db.from('posts').select('id, oc_id, kind, body, reply_to, created_at, reactions(oc_id)').order('created_at', { ascending: false }).limit(400)),
+    ]);
+    settingsFound = applySettings(set?.data);
+    ocs = ocRows.map(fromRow);
+    const all = postRows.map(toPost);
+    posts = all.filter(p => !p.reply_to);
+    replies = new Map();
+    all.filter(p => p.reply_to).reverse().forEach(p => { if (!replies.has(p.reply_to)) replies.set(p.reply_to, []); replies.get(p.reply_to).push(p); });
+  }
+  // 활동 인물 기준: 서신, 비무, 받은 선물
+  async function loadMine() {
+    if (!me) return;
+    const [ls, dIn, dOut, done, pend, gifts] = await Promise.all([
+      q(db.from('letters').select('*').or(`from_oc.eq.${me},to_oc.eq.${me}`).order('created_at').limit(600)),
+      q(db.from('duels').select('*').eq('defender', me).eq('status', 'pending').order('created_at')),
+      q(db.from('duels').select('*').eq('challenger', me).eq('status', 'pending').order('created_at')),
+      q(db.from('duels').select('*').eq('status', 'done').order('resolved_at', { ascending: false }).limit(30)),
+      q(db.from('duels').select('*').eq('status', 'done').or(`and(challenger.eq.${me},applied_a.eq.false),and(defender.eq.${me},applied_b.eq.false)`)),
+      q(db.from('gifts').select('*').eq('to_oc', me).eq('seen', false).order('created_at')),
+    ]);
+    const byOther = new Map(); unread.clear();
+    for (const r of ls) {
+      const out = r.from_oc === me, other = out ? r.to_oc : r.from_oc;
+      if (!byOther.has(other)) byOther.set(other, []);
+      byOther.get(other).push({ id: r.id, me: out, body: r.body, t: r.created_at, fly: out && Date.parse(r.arrive_at) > Date.now() ? hm(r.arrive_at) : null, read: !!r.read_at });
+      if (!out && !r.read_at) unread.add(other);
+    }
+    letters.clear();
+    [...byOther].sort((a, b) => Date.parse(b[1].at(-1).t) - Date.parse(a[1].at(-1).t)).forEach(([k, v]) => letters.set(k, v));
+    duelsIn = dIn.map(d => ({ id: d.id, from: d.challenger, t: d.created_at }));
+    duelsOut = dOut.map(d => ({ id: d.id, to: d.defender, t: d.created_at }));
+    results = done.filter(d => d.result).map(d => ({ a: d.challenger, b: d.defender, r: d.result.rounds.map(x => x.r), win: d.result.winner, t: d.resolved_at }));
+    await applyPending(pend, gifts);
+  }
+  // 다른 사람이 남긴 비무 결과와 선물을 내 인물에 반영한다 (인물은 주인만 고친다)
+  async function applyPending(duels, gifts) {
+    const o = by(me);
+    if (!canAct(o) || (!duels.length && !gifts.length)) return;
+    const pops = [];
+    for (const d of duels) {
+      const side = d.challenger === me ? 'a' : 'b', dl = d.result.delta[side];
+      o.fame += dl.fame || 0; o.insight += dl.insight || 0; o.w += dl.w || 0; o.l += dl.l || 0; o.d += dl.d || 0;
+      o.duelBuff = 0;
+      const other = by(side === 'a' ? d.defender : d.challenger);
+      pops.push({
+        mark: '武', kicker: '비무 결과', title: !d.result.winner ? '무승부' : d.result.winner === me ? '승리' : '패배',
+        story: '세 합을 겨뤘습니다.',
+        lines: [['상대', other?.name || '?'], ['합', d.result.rounds.map(x => (side === 'a' ? x.r : { l: 'r', r: 'l', d: 'd' }[x.r])).map(x => ({ l: '이김', r: '짐', d: '비김' }[x])).join(' · ')],
+          ['명성', `+${dl.fame || 0}`], ['깨달음', `+${dl.insight || 0}`]],
+      });
+    }
+    for (const g of gifts) {
+      let arm = null, what;
+      if (g.kind === 'item') { o.bag[g.name] = (o.bag[g.name] || 0) + g.qty; what = `${g.name} ${g.qty}개`; }
+      else if (g.kind === 'arm') { arm = { uid: crypto.randomUUID(), ...g.arm }; o.arms.push(arm); what = `병기 「${arm.name}」`; }
+      else { o.silver += g.qty; what = `은자 ${fmt(g.qty)}`; }
+      pops.push({ mark: '禮', kicker: `${g.from_name}의 선물`, title: what, story: g.msg, arm });
+    }
+    await saveOc(o);
+    const aIds = duels.filter(d => d.challenger === me).map(d => d.id), bIds = duels.filter(d => d.defender === me).map(d => d.id);
+    if (aIds.length) await q(db.from('duels').update({ applied_a: true }).in('id', aIds));
+    if (bIds.length) await q(db.from('duels').update({ applied_b: true }).in('id', bIds));
+    if (gifts.length) await q(db.from('gifts').update({ seen: true }).in('id', gifts.map(g => g.id)));
+    pops.forEach(popup);
+  }
+
+  // ── 공통 ──────────────────────────────────
+  const $ = s => document.querySelector(s);
+  const h = (tag, props, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (v == null || v === false) continue;
+      if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else if (k === 'class') el.className = v;
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c);
+    return el;
+  };
+  const fmt = n => Number(n || 0).toLocaleString('ko-KR');
+  const pad = n => String(n).padStart(2, '0');
+  const hm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const ago = t => {
+    const s = (Date.now() - Date.parse(t)) / 1000, d = new Date(t);
+    return s < 60 ? '방금' : s < 3600 ? `${Math.floor(s / 60)}분 전` : s < 86400 ? `${Math.floor(s / 3600)}시간 전` : `${d.getMonth() + 1}.${d.getDate()}`;
+  };
+  const ph = t => h('div', { class: 'ph' }, h('h1', {}, t));
+  const sec = (title, desc, ...kids) => h('div', { class: 'sec' }, h('h2', {}, title), desc ? h('p', { class: 'desc' }, desc) : null, kids);
+  const empty = t => h('p', { class: 'empty' }, t);
+  let toastT;
+  const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800); };
+  const name = o => o ? h('button', { class: 'nm', onclick: () => go('profile', o.id) }, o.name) : h('span', { class: 'mut' }, '[사라진 인물]');
+  const av = o => h('div', { class: 'av' + (o?.npc ? ' npc' : '') }, o?.seal ? h('img', { src: o.seal, alt: '' }) : (o ? [...o.name][0] : '?'));
+  const npcTag = o => o?.npc ? h('span', { class: 'tag npc' }, 'NPC') : null;
+  const gradeTag = g => h('span', { class: 'tag g' + gradeIdx(g) }, g);
+  const pickW = list => { let r = Math.random() * list.reduce((s, x) => s + x.w, 0); return list.find(x => (r -= x.w) < 0) || list[list.length - 1]; };
+  const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+  // 버튼을 두 번 눌러 같은 일이 두 번 저장되지 않도록 한 번에 하나씩만 처리한다
+  let busy = false;
+  const act = fn => async (...a) => {
+    if (busy) return;
+    busy = true;
+    try { await fn(...a); } catch (e) { console.error(e); } finally { busy = false; }
+  };
+
+  // 소문 글은 바로 화면에 보이고, 저장이 끝나면 id를 받아 둔다
+  function newPost(kind, oc, body, replyTo = null) {
+    const p = { id: 'tmp-' + Math.random(), kind, oc, body, t: new Date().toISOString(), reply_to: replyTo, likes: [] };
+    if (replyTo) { if (!replies.has(replyTo)) replies.set(replyTo, []); replies.get(replyTo).push(p); } else posts.unshift(p);
+    q(db.from('posts').insert({ oc_id: oc, kind, body, reply_to: replyTo }).select('id').single()).then(r => { p.id = r.id; }).catch(() => {});
+    return p;
+  }
+
+  // ════════════════════════════════════════════
+  // 시작
+  // ════════════════════════════════════════════
+  function gate(title, kids) {
+    $('.wrap').style.display = 'none';
+    $('#gate').replaceChildren(h('div', { class: 'gate' }, h('div', { class: 'gate-box' }, h('div', { class: 'mk' }, '江湖'), h('h1', {}, title), kids)));
+  }
+  async function boot() {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return gate('연결 설정이 필요합니다', h('p', { class: 'mut' }, 'index.html 위쪽의 SUPABASE_URL과 SUPABASE_ANON_KEY를 채워 주세요.'));
+    db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session } } = await db.auth.getSession();
+    session ? start(session.user) : showAuth();
+  }
+  function showAuth() {
+    const email = h('input', { class: 'pick', type: 'email', placeholder: '이메일', autocomplete: 'email' });
+    const pw = h('input', { class: 'pick', type: 'password', placeholder: '비밀번호 (6자 이상)', autocomplete: 'current-password' });
+    const err = h('p', { class: 'err' });
+    const submit = act(async signup => {
+      err.textContent = '';
+      const cred = { email: email.value.trim(), password: pw.value };
+      const { data, error } = signup ? await db.auth.signUp(cred) : await db.auth.signInWithPassword(cred);
+      if (error) return void (err.textContent = error.message === 'Invalid login credentials' ? '이메일이나 비밀번호가 맞지 않습니다.' : error.message);
+      if (!data.session) return void (err.textContent = '확인 메일을 보냈습니다. 메일의 링크를 누른 뒤 로그인해 주세요.');
+      await start(data.session.user);
+    });
+    pw.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) submit(false); });
+    gate('강호에 들어서기', [h('p', { class: 'mut', style: 'font-size:13px' }, '처음이라면 이메일과 비밀번호를 적고 가입을 눌러 주세요.'),
+      h('div', { class: 'stack' }, email, pw, h('div', { class: 'row' }, h('button', { class: 'btn fill', onclick: () => submit(false) }, '로그인'), h('button', { class: 'btn', onclick: () => submit(true) }, '가입')), err)]);
+  }
+  async function start(u) {
+    user = u;
+    const prof = await q(db.from('profiles').select('is_admin').eq('id', user.id).maybeSingle());
+    isAdmin = !!prof?.is_admin;
+    await loadAll();
+    if (isAdmin && !settingsFound) await saveSettings();   // 처음 운영자가 들어오면 기본 설정을 저장
+    if (!mine().length) return createOc();
+    const saved = lsGet('ghr-active');
+    me = mine().some(o => o.id === saved) ? saved : (mine().find(o => !o.npc) || mine()[0]).id;
+    await dailyReset();
+    await loadMine();
+    $('#gate').replaceChildren(); $('.wrap').style.display = '';
+    render();
+    if (!started) { started = true; setInterval(refresh, 30000); setInterval(tickClock, 1000); }
+  }
+  // 기력은 한국 시간 자정마다 다시 찬다
+  async function dailyReset() {
+    const day = todayKST();
+    for (const o of mine()) if (o.day !== day) { o.stamina = SET.stamina; o.day = day; await saveOc(o); }
+  }
+  function createOc() {
+    const nm = h('input', { class: 'pick', placeholder: '이름 (20자까지)', maxlength: 20 });
+    const aff = h('input', { class: 'pick', placeholder: '소속 (없으면 비워 두기)', maxlength: 20 });
+    const desc = h('p', { class: 'mut', style: 'font-size:12px' });
+    const wp = h('select', { class: 'pick', onchange: () => { desc.textContent = traitDesc(WEAPONS[wp.value]) ? `${WEAPONS[wp.value].trait} · ${traitDesc(WEAPONS[wp.value])}` : ''; } },
+      h('option', { value: '' }, '무기 고르기'), Object.keys(WEAPONS).map(w => h('option', { value: w }, `${w} · ${WEAPONS[w].style}`)));
+    const bio = h('textarea', { class: 'field', placeholder: '한두 줄 소개 (나중에 프로필에서 자세히 적을 수 있습니다)', maxlength: 500 });
+    const npc = isAdmin ? h('input', { type: 'checkbox' }) : null;
+    const err = h('p', { class: 'err' });
+    const save = act(async () => {
+      err.textContent = '';
+      if (!nm.value.trim()) return void (err.textContent = '이름을 적어 주세요.');
+      if (!wp.value) return void (err.textContent = '무기를 골라 주세요.');
+      const row = { name: nm.value.trim(), weapon: wp.value, npc: !!npc?.checked,
+        profile: { aff: aff.value.trim() || '무소속', bio: bio.value.trim() }, life: { stamina: SET.stamina, day: todayKST(), bag: {} } };
+      const r = await q(db.from('ocs').insert(row).select().single()).catch(() => null);
+      if (!r) return;
+      lsSet('ghr-active', r.id);
+      await start(user);
+    });
+    gate('강호에 나설 인물', [h('p', { class: 'mut', style: 'font-size:13px' }, '인물은 한 사람에 하나입니다. 무기는 지금 고르면 나중에 바꿀 수 없습니다.'),
+      h('div', { class: 'stack' }, nm, aff, wp, desc, bio,
+        npc ? h('label', { class: 'chk' }, npc, '운영자 · 이 인물을 NPC로 만들기') : null,
+        h('div', { class: 'row' }, h('button', { class: 'btn fill', onclick: save }, '인물 만들기'), h('button', { class: 'link', onclick: () => db.auth.signOut().then(() => location.reload()) }, '로그아웃')), err)]);
+  }
+  async function refresh() {
+    try {
+      await loadAll(); await loadMine();
+      if (typing()) { renderNav(); renderAside(); } else render();
+    } catch (e) { console.error(e); }
+  }
+  // 글을 쓰는 중에는 화면을 다시 그리지 않는다
+  function typing() {
+    const m = $('#main'), ae = document.activeElement;
+    return (m.contains(ae) && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) || [...m.querySelectorAll('textarea, input:not([type=checkbox]):not([type=radio])')].some(e => e.value.trim() && !e.disabled && e.type !== 'number')
+      || !!$('.modal-bg');
+  }
+  function setActive(id) { me = id; lsSet('ghr-active', id); }
+
+  // ════════════════════════════════════════════
+  // 화면
+  // ════════════════════════════════════════════
+  const NAV = [
+    ['timeline', '聞', '소문'], ['train', '修', '수련'], ['duel', '武', '비무'], ['life', '業', '생활'],
+    ['letters', '信', '서신'], ['people', '譜', '인물첩'], ['admin', '令', '운영'],
+  ];
+  const PARENT = { thread: 'timeline', profile: 'people' };
+  let page = 'timeline', arg = null, filter = 'all', editProfile = false;
+
+  function go(p, a = null) { page = p; arg = a; editProfile = false; render(); window.scrollTo(0, 0); }
+  function renderNav() {
+    const o = by(me);
+    $('#nav').replaceChildren(...NAV.filter(([p]) => p !== 'admin' || isAdmin).map(([p, hj, l]) => {
+      const n = p === 'letters' ? unread.size : p === 'duel' ? duelsIn.length : p === 'train' && o?.retreat_until && o.retreat_until <= Date.now() ? '!' : '';
+      return h('button', { class: (PARENT[page] || page) === p ? 'on' : '', onclick: () => go(p) }, h('i', {}, hj), l, n ? h('span', { class: 'n' }, n) : null);
+    }));
+  }
+  function render() {
+    if (!by(me)) return;
+    renderNav();
+    $('#main').replaceChildren(...PAGES[page](arg).flat(Infinity).filter(Boolean));
+    renderAside();
+  }
+  function renderAside() {
+    const o = by(me);
+    const pick = mine().length > 1 ? h('select', { class: 'pick', style: 'min-width:0', onchange: act(async e => {
+      setActive(e.target.value); await loadMine(); toast(by(me).name + ' 명의로 활동합니다'); render();
+    }) }, mine().map(x => h('option', { value: x.id, selected: x.id === me }, x.npc ? `NPC · ${x.name}` : x.name))) : null;
+    const notices = posts.filter(p => p.kind === 'notice').slice(0, 3);
+    $('#aside').replaceChildren(
+      h('div', { class: 'blk me' }, h('h3', {}, '활동 인물'),
+        h('div', {}, name(o), ' ', npcTag(o)), o.title ? h('div', { class: 'alias' }, `「${o.title}」`) : null,
+        h('p', {}, `${realmFull(o.lv)} · ${o.weapon} · ${o.aff}`),
+        o.equip ? h('p', {}, `패용 「${o.equip.name}」`) : null,
+        o.job ? h('p', {}, `${o.job} · 은자 ${fmt(o.silver)} · 기력 ${o.stamina}/${SET.stamina}`) : null,
+        h('p', { class: 'st' }, o.retreat_until ? (o.retreat_until > Date.now() ? ['폐관 중 · ', h('span', { 'data-until': o.retreat_until })] : '출관 대기') : '강호 활동 중'),
+        pick),
+      h('div', { class: 'blk' }, h('h3', {}, '공지'),
+        notices.length ? h('ul', {}, notices.map(p => h('li', {}, p.body, h('small', {}, ago(p.t))))) : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 공지가 없습니다.')),
+      h('div', { class: 'blk' }, h('h3', {}, '명성'),
+        h('ul', {}, ocs.filter(x => !x.npc).sort((a, b) => b.fame - a.fame).slice(0, 5).map((x, i) =>
+          h('li', { style: 'display:flex;justify-content:space-between' }, h('span', {}, h('span', { class: 'mut', style: 'margin-right:10px' }, i + 1), x.name), h('span', { class: 'mut' }, fmt(x.fame)))))));
+    tickClock();
+  }
+
+  // ── 소문 ────────────────────────────────────
+  const LABEL = { game: '江湖', title: '別號', notice: '公告' };
+  async function toggleLike(p, liked) {
+    if (String(p.id).startsWith('tmp')) return;
+    if (liked) { await q(db.from('reactions').delete().eq('post_id', p.id).eq('oc_id', me)); p.likes = p.likes.filter(x => x !== me); }
+    else { await q(db.from('reactions').insert({ post_id: p.id, oc_id: me })); p.likes.push(me); }
+    render();
+  }
+  async function delPost(p) {
+    if (!confirm('이 글을 지울까요?')) return;
+    await q(db.from('posts').delete().eq('id', p.id));
+    posts = posts.filter(x => x !== p);
+    if (p.reply_to) replies.set(p.reply_to, (replies.get(p.reply_to) || []).filter(x => x !== p));
+    page === 'thread' && arg === p.id ? go('timeline') : render();
+  }
+  function postEl(p, isReply) {
+    const o = by(p.oc), liked = p.likes.includes(me);
+    const canDel = isAdmin || (p.kind === 'post' && canAct(o));
+    const acts = [
+      isReply ? null : h('button', { onclick: () => go('thread', p.id) }, '답글 ' + ((replies.get(p.id) || []).length || '')),
+      h('button', { class: liked ? 'on' : '', onclick: act(() => toggleLike(p, liked)) }, '공감 ' + (p.likes.length || '')),
+      canDel ? h('button', { onclick: act(() => delPost(p)) }, '삭제') : null];
+    if (p.kind !== 'post') {
+      return h('article', { class: 'post sys' }, h('div', { class: 'lbl' }, LABEL[p.kind]),
+        h('div', {}, h('p', {}, p.body), h('div', { class: 'acts' }, h('span', {}, ago(p.t)), acts)));
+    }
+    return h('article', { class: 'post' + (isReply ? ' reply' : '') }, av(o),
+      h('div', {},
+        h('div', { class: 'h' }, name(o), npcTag(o), o?.title ? h('span', { class: 'alias' }, `「${o.title}」`) : null,
+          o ? h('span', { class: 'mut' }, `${realm(o.lv)} · ${o.weapon}`) : null, h('time', {}, ago(p.t))),
+        h('p', {}, p.body), h('div', { class: 'acts' }, acts)));
+  }
+  function composer(onSend, placeholder) {
+    const o = by(me);
+    const ta = h('textarea', { placeholder, maxlength: 500 });
+    const n = h('span', {}, '0 / 500');
+    ta.addEventListener('input', () => n.textContent = ta.value.length + ' / 500');
+    const send = () => { const v = ta.value.trim(); if (v) { ta.value = ''; onSend(v); } };
+    ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); });
+    return h('div', { class: 'compose' }, av(o),
+      h('div', {}, ta, h('div', { class: 'foot' }, h('span', {}, o.name + (o.npc ? ' · NPC 명의' : '')),
+        h('span', { class: 'row', style: 'gap:14px' }, n, h('button', { class: 'btn fill', onclick: send }, '올리기')))));
+  }
+  function pTimeline() {
+    // 교류는 사람들이 쓴 글만, 소식은 게임 기록·별호·공지만
+    const list = posts.filter(p => filter === 'all' || (filter === 'talk' ? p.kind === 'post' : p.kind !== 'post'));
+    return [ph('소문'),
+      composer(v => { newPost('post', me, v); render(); }, '강호에 한마디 남기기'),
+      h('div', { class: 'filters' }, [['all', '전체'], ['talk', '교류'], ['news', '소식']].map(([k, l]) =>
+        h('button', { class: filter === k ? 'on' : '', onclick: () => { filter = k; render(); } }, l))),
+      list.length ? list.map(p => postEl(p)) : empty('아직 소문이 없습니다. 첫 이야기를 남겨 보세요.')];
+  }
+  function pThread(id) {
+    const p = posts.find(x => x.id === id);
+    const back = h('div', { class: 'back' }, h('button', { class: 'link', onclick: () => go('timeline') }, '← 소문으로'));
+    if (!p) return [back, empty('지워진 글입니다.')];
+    const rs = replies.get(id) || [];
+    return [back, ph(`답글 ${rs.length}개`), postEl(p), rs.map(r => postEl(r, true)),
+      composer(v => { newPost('post', me, v, id); render(); }, '답글 남기기')];
+  }
+
+  // ── 수련 ────────────────────────────────────
+  function pTrain() {
+    const o = by(me), need = needQi(o.lv), r = rIdx(o.lv), atWall = sIdx(o.lv) === 2;
+    const sealed = sealedAt(r + 1), top = o.lv >= REALMS.length * 3;
+    const cols = TIERS.map((t, i) => `repeat(${Math.max(1, (TIERS[i + 1]?.from ?? REALMS.length) - t.from)}, 1fr)`).join(' 6px ');
+    const ladder = h('div', { class: 'ladder', style: `--cols:${cols}` }, REALMS.map((nm, i) => {
+      const rung = h('div', { class: 'rung' + (i === r ? ' cur' : '') + (sealedAt(i) ? ' lock' : '') },
+        h('div', { class: 'ticks' }, [0, 1, 2].map(s => h('i', { class: i * 3 + s < o.lv ? 'f' : '' }))), h('span', {}, nm));
+      return i > 0 && TIERS.some(t => t.from === i) ? [h('div', { class: 'gap', title: tierOf(i).name }), rung] : rung;
+    }));
+    const rate = (BREAK_RATE[r] ?? 0) + (o.breakBonus || 0);
+    let bt;
+    if (top) bt = h('div', { class: 'bt' }, h('div', {}, h('b', {}, '더 오를 곳이 없습니다'), h('p', {}, `${realmFull(o.lv)}. 강호의 끝에 섰습니다.`)));
+    else if (!atWall) bt = h('div', { class: 'bt' }, h('div', {}, h('b', {}, `다음 단계 · ${realmFull(o.lv + 1)}`), h('p', {}, `${energy(o.lv)} ${fmt(need)}에 이르면 저절로 오릅니다.`)));
+    else if (sealed) bt = h('div', { class: 'bt' }, h('div', {}, h('b', {}, sealed.gate), h('p', {}, `아직 닫혀 있습니다. ${REALMS[r + 1]}부터는 운영자가 시대 사건으로 문을 열어야 오를 수 있습니다.`)));
+    else bt = h('div', { class: 'bt' },
+      h('div', {}, h('b', {}, `벽 너머 · ${REALMS[r + 1]}`), h('p', {}, `성공률 ${rate}%` + (o.breakBonus ? ` (보너스 +${o.breakBonus})` : '') + `입니다. 실패하면 ${energy(o.lv)}의 ${SET.failLoss}%를 잃습니다.`)),
+      h('button', { class: 'btn fill', disabled: o.qi < need, onclick: act(async () => {
+        o.breakBonus = 0;
+        if (Math.random() * 100 < rate) {
+          o.qi -= need; o.lv++;
+          newPost('game', me, `${o.name} — 벽을 넘어 ${realm(o.lv)}에 올랐다.`);
+          popup({ mark: '破', kicker: '경지 돌파', title: realm(o.lv), story: '벽을 넘었습니다.' });
+        } else {
+          o.qi = Math.round(o.qi * (1 - SET.failLoss / 100));
+          newPost('game', me, `${o.name} — ${REALMS[r + 1]}의 벽에 부딪혀 물러났다.`);
+          toast('벽을 넘지 못했습니다');
+        }
+        await saveOc(o); render();
+      }) }, '돌파 시도'));
+
+    let body;
+    if (!o.retreat_until) {
+      body = h('div', { class: 'opts', style: `--n:${RETREATS.length}` }, RETREATS.map(x => h('button', { class: 'opt', onclick: act(async () => {
+        o.retreat_hours = x.h; o.retreat_until = Date.now() + x.h * 3600e3;
+        await saveOc(o); toast(x.h + '시간 폐관에 들었습니다'); render();
+      }) }, h('b', {}, x.h + '시간'), h('span', {}, `${energy(o.lv)} 약 +${fmt(gainQi(x.h, o.lv) * (1 + (o.retreatBuff || 0) / 100))}`), h('small', {}, `기연 ${x.luck}% · 주화입마 ${x.dev}%`))));
+    } else {
+      body = h('div', { class: 'count' }, h('div', { class: 'mut', style: 'font-size:13px' }, o.retreat_hours + '시간 폐관 중'),
+        h('div', { class: 'big', 'data-until': o.retreat_until }),
+        h('div', { class: 'row', style: 'justify-content:center' },
+          h('button', { class: 'btn fill', disabled: o.retreat_until > Date.now(), onclick: act(() => claim(o)) }, '출관')));
+    }
+    return [ph('수련'),
+      h('div', { class: 'realm' },
+        h('div', {}, h('div', { class: 'lbl' }, `현재 경지 · ${tierOf(r).name}`), h('div', { class: 'big' }, realm(o.lv), h('small', {}, SUBS[sIdx(o.lv)]))),
+        h('div', { class: 'qi' }, h('div', { class: 'lbl' }, energy(o.lv)), h('b', {}, fmt(o.qi)))),
+      h('div', { class: 'meter' }, h('i', { style: `width:${top ? 100 : Math.min(100, o.qi / need * 100).toFixed(1)}%` })),
+      h('div', { class: 'under' }, h('span', {}, top ? '—' : `다음 · ${realmFull(o.lv + 1)}`), h('span', {}, top ? '' : `${fmt(Math.min(o.qi, need))} / ${fmt(need)}`)),
+      ladder, bt,
+      h('div', { class: 'nums' },
+        h('div', {}, h('small', {}, '누적 수련'), h('b', {}, o.hours + '시간')),
+        h('div', {}, h('small', {}, '명성'), h('b', {}, fmt(o.fame))),
+        h('div', {}, h('small', {}, '비무 전적'), h('b', {}, `${o.w}승 ${o.l}패`))),
+      pathSec(o, r),
+      sec('폐관', '시간을 골라 폐관에 들어갑니다. 폐관하는 동안에도 소문, 서신, 비무는 그대로 할 수 있습니다.', body),
+      sec('기연', '폐관, 채집, 객잔 의뢰 중에 일정 확률로 일어납니다. 기연을 얻으면 바로 알려 드립니다.',
+        h('div', { class: 'tbl' }, h('table', {},
+          h('thead', {}, h('tr', {}, ['기연', '나오는 곳', '효과', '비중'].map(t => h('th', {}, t)))),
+          h('tbody', {}, FORTUNES.map(f => h('tr', {},
+            h('td', { class: 'w', style: 'font-size:15px' }, f.name), h('td', {}, f.where.join(' · ') + (f.min ? ` ${f.min}시간 이상` : '')),
+            h('td', { class: 'mut' }, fortuneDesc(f)), h('td', {}, f.w)))))),
+        h('p', { class: 'note' }, `기연이 일어날 확률은 폐관 ${RETREATS.map(x => `${x.h}시간 ${x.luck}%`).join(' · ')}, 채집 ${SET.rateGather}%, 객잔 의뢰 ${SET.rateErrand}%입니다. 병기가 확정이 아닌 기연에도 ${SET.armExtra}% 확률로 이름 붙은 병기가 따라옵니다. 병기 등급은 ${GRADES.map(g => `${g.name} ${g.odds}%`).join(' · ')}의 비율로 나오며, ${GRADES.filter(g => g.unique).map(g => g.name).join(' · ')}은 강호에 한 자루씩만 있습니다.`))];
+  }
+  function pathSec(o, r) {
+    const P = pathOf(o.weapon), st = o.path || 0, done = st >= P.stages.length;
+    const ok = !done && (o.insight || 0) >= PATH_NEED[st] && r >= PATH_REALM[st];
+    return sec(`무공 경지 · ${P.name}`, `지금 깨달음은 ${fmt(o.insight || 0)}입니다. 깨달음이 차고 몸의 경지가 받쳐 주면 다음 단계를 깨우칠 수 있습니다.`,
+      h('ol', { class: 'path', style: `--n:${P.stages.length}` }, P.stages.map((s, i) => h('li', { class: i < st ? 'f' : i === st ? 'nx' : '' },
+        h('i'), h('span', {}, s), h('small', {}, REALMS[PATH_REALM[i]] || '')))),
+      h('div', { class: 'bt', style: 'margin-top:16px' },
+        done ? h('div', {}, h('b', {}, P.stages[P.stages.length - 1] || '—'), h('p', {}, '무공의 끝에 이르렀습니다.'))
+          : h('div', {}, h('b', {}, `다음 · ${P.stages[st]}`), h('p', {}, `깨달음 ${fmt(PATH_NEED[st])}, 경지 ${REALMS[PATH_REALM[st]]} 이상이 필요합니다. 깨우치면 비무 판정에 ${SET.pathBonus}점이 더해집니다.`)),
+        done ? null : h('button', { class: 'btn fill', disabled: !ok, onclick: act(async () => {
+          o.insight -= PATH_NEED[st]; o.path = st + 1;
+          newPost('game', me, `${o.name} — ${P.stages[st]}의 경지를 깨우쳤다.`);
+          await saveOc(o);
+          popup({ mark: '悟', kicker: `무공 경지 · ${P.name}`, title: P.stages[st], story: '새로운 경지를 깨우쳤습니다.' });
+          render();
+        }) }, '깨우치기')),
+      h('p', { class: 'note' }, '깨달음은 비무(승 12 · 무 10 · 패 8), 기연, 폐관(시간당 1), 서생의 필사로 얻을 수 있습니다.'));
+  }
+  async function claim(o) {
+    if (!o.retreat_until || o.retreat_until > Date.now()) return toast('아직 폐관이 끝나지 않았습니다');
+    const hrs = o.retreat_hours, R = RETREATS.find(x => x.h === hrs) || RETREATS[0], roll = Math.random() * 100;
+    let g = Math.round(gainQi(hrs, o.lv) * (1 + (o.retreatBuff || 0) / 100)), msg = '';
+    o.retreatBuff = 0;
+    if (roll < R.dev) { g = Math.round(g / 2); msg = ' · 주화입마에 빠질 뻔했습니다'; newPost('game', me, `${o.name} — 폐관 중 주화입마에 빠질 뻔했다.`); }
+    else if (roll >= 100 - R.luck) msg = ' · ' + fortune(o, '폐관', hrs);
+    o.qi += g; o.hours += hrs; o.insight = (o.insight || 0) + hrs; o.retreat_hours = null; o.retreat_until = null;
+    await saveOc(o);
+    toast(`출관 · ${energy(o.lv)} +${fmt(g)}${msg}`); render();
+  }
+
+  // ── 기연과 병기 ─────────────────────────────
+  function fortuneDesc(f, grades = GRADES) {
+    const p = [];
+    if (f.qiHours) p.push(`내공 +폐관 ${f.qiHours}시간분`);
+    if (f.path) p.push('무공 경지 한 단계' + (f.insight ? ` (안 되면 깨달음 +${f.insight})` : ''));
+    else if (f.insight) p.push(`깨달음 +${f.insight}`);
+    if (f.fame) p.push(`명성 +${f.fame}`);
+    if (f.breakBonus) p.push(`다음 돌파 +${f.breakBonus}%`);
+    if (f.drop) p.push('병기 확정 (' + grades.map((g, i) => f.drop[i] ? `${g.name} ${f.drop[i]}%` : null).filter(Boolean).join(' · ') + ')');
+    return p.join(', ') || '효과 없음';
+  }
+  // 기연을 굴려 인물에 적용하고 팝업으로 알린다. 저장은 부른 쪽에서 한다
+  function fortune(o, where, hrs = 4) {
+    o.insight = o.insight || 0;
+    const pool = FORTUNES.filter(x => x.where.includes(where) && (!x.min || hrs >= x.min));
+    if (!pool.length) return '';
+    const f = pickW(pool), lines = [];
+    newPost('game', o.id, `${o.name} — ${f.post}`);
+    if (f.qiHours) { const g = gainQi(f.qiHours, o.lv); o.qi += g; lines.push([energy(o.lv), `+${fmt(g)}`]); }
+    const st = o.path || 0;
+    if (f.path && st < PATH_NEED.length && rIdx(o.lv) >= PATH_REALM[st]) { o.path = st + 1; lines.push(['무공 경지', pathOf(o.weapon).stages[st] + ' 깨우침']); }
+    else if (f.insight) { o.insight += f.insight; lines.push(['깨달음', `+${f.insight}`]); }
+    if (f.fame) { o.fame += f.fame; lines.push(['명성', `+${f.fame}`]); }
+    if (f.breakBonus) { o.breakBonus = (o.breakBonus || 0) + f.breakBonus; lines.push(['다음 돌파 성공률', `+${f.breakBonus}%`]); }
+    const arm = f.drop ? dropArm(o, f.drop) : Math.random() * 100 < SET.armExtra ? dropArm(o) : null;
+    popup({ mark: '奇緣', kicker: `${where}에서 얻은 기연`, title: f.name, story: f.post, lines, arm });
+    return `기연 · ${f.name}`;
+  }
+  // 정해진 비율로 내 무기 종류, 나머지는 다른 종류(선물·거래용). 한 자루뿐인 등급은 주인이 있으면 한 단계 아래로
+  function dropArm(o, odds = GRADES.map(g => g.odds)) {
+    const types = Object.keys(WEAPONS);
+    const type = Math.random() * 100 < SET.armOwnType ? o.weapon : types[Math.floor(Math.random() * types.length)];
+    const taken = n => ocs.some(x => x.arms.some(a => a.name === n));
+    let gi = pickW(GRADES.map((g, i) => ({ i, w: odds[i] || 0 }))).i, pool = [];
+    for (; gi >= 0; gi--) {
+      pool = ARMS_LIST.filter(a => a.type === type && a.grade === GRADES[gi].name && !(GRADES[gi].unique && taken(a.name)));
+      if (pool.length) break;
+    }
+    if (!pool.length) return null;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    const a = { uid: crypto.randomUUID(), name: pick.name, type, grade: pick.grade };
+    o.arms.push(a);
+    if (gi > 0) newPost('game', o.id, `${a.grade} 「${a.name}」 출세 — ${o.name}의 손에 들어갔다.`);
+    return a;
+  }
+  function armCard(a) {
+    const fit = a.type === by(me)?.weapon, g = GRADES[gradeIdx(a.grade)];
+    return h('div', { class: 'arm-card' },
+      h('div', { class: 'k' }, '병기를 얻었습니다'), h('b', {}, `「${a.name}」`),
+      h('div', {}, gradeTag(a.grade), ' ', h('span', { class: 'mut', style: 'font-size:13px' }, a.type)),
+      h('p', {}, loreOf(a.name)),
+      h('div', { class: 'mut', style: 'font-size:12px;margin-top:8px' }, fit ? `패용하면 비무 판정에 ${g?.bonus ?? 0}점이 더해집니다.` : '내 무기와 종류가 달라 패용할 수 없습니다. 생활 > 병기에서 선물할 수 있습니다.'));
+  }
+  // 팝업이 여러 개 생기면 차례로 보여 준다
+  const popQ = [];
+  function popup(p) { popQ.push(p); if (popQ.length === 1) showPop(); }
+  function showPop() {
+    const p = popQ[0]; if (!p) return;
+    const close = () => { bg.remove(); popQ.shift(); showPop(); };
+    const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) close(); } },
+      h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': p.title },
+        h('div', { class: 'mk' }, p.mark), h('div', { class: 'kicker' }, p.kicker), h('h2', {}, p.title),
+        p.story ? h('p', { class: 'story' }, p.story) : null,
+        p.lines?.length ? h('ul', {}, p.lines.map(([k, v]) => h('li', {}, h('span', { class: 'mut' }, k), h('b', {}, v)))) : null,
+        p.arm ? armCard(p.arm) : null,
+        h('button', { class: 'btn fill', onclick: close }, '확인')));
+    document.body.append(bg); bg.querySelector('.modal > .btn').focus();
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelector('.modal-bg .modal > .btn')?.click(); });
+
+  // ── 비무 ────────────────────────────────────
+  function picker() {
+    const v = [null, null, null];
+    const el = h('div', { class: 'moves' }, [0, 1, 2].map(i => {
+      const row = h('div', { class: 'mv' }, h('span', {}, (i + 1) + '합'),
+        Object.entries(MOVES).map(([k, hj]) => h('button', { 'data-k': k, onclick: () => {
+          v[i] = k; row.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+        } }, `${hj} ${k}`)));
+      return row;
+    }));
+    return { el, ok: () => v.every(Boolean), get: () => [...v] };
+  }
+  function diagram() {
+    const svg = `
+<svg viewBox="0 0 260 236" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="공은 허를, 허는 수를, 수는 공을 이긴다">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#151515"/></marker></defs>
+  <circle cx="130" cy="118" r="62" stroke="#e4e2dc" stroke-dasharray="2 4"/>
+  <path d="M154 58 L210 152" stroke="#151515" marker-end="url(#ah)"/>
+  <path d="M196 184 L64 184" stroke="#151515" marker-end="url(#ah)"/>
+  <path d="M50 152 L106 58" stroke="#151515" marker-end="url(#ah)"/>
+  <g font-family="Noto Serif KR, serif" text-anchor="middle">
+    <circle cx="130" cy="36" r="26" fill="#151515"/><text x="130" y="45" font-size="24" fill="#fcfcfa">攻</text>
+    <circle cx="224" cy="184" r="26" fill="#fff" stroke="#151515"/><text x="224" y="193" font-size="24" fill="#151515">虛</text>
+    <circle cx="36" cy="184" r="26" fill="#fff" stroke="#151515"/><text x="36" y="193" font-size="24" fill="#151515">守</text>
+    <g font-size="11" fill="#7b7a75">
+      <text x="200" y="98">틈을 친다</text>
+      <text x="130" y="208">흔들어 뚫는다</text>
+      <text x="58" y="98">흘려 되친다</text>
+    </g>
+  </g>
+</svg>`;
+    const wrap = h('div', {}); wrap.innerHTML = svg; return wrap.firstElementChild;
+  }
+  function pDuel(target) {
+    const myWeapon = by(me).weapon;
+    const incoming = duelsIn.map(d => {
+      const o = by(d.from), pk = picker();
+      return h('div', { class: 'card' },
+        h('div', { class: 'top' }, h('div', {}, h('span', { class: 'tag', style: 'margin-right:8px' }, '도전장'), name(o), o ? h('span', { class: 'mut', style: 'font-size:13px' }, ` · ${realm(o.lv)} · ${o.weapon}`) : null), h('span', { class: 'mut', style: 'font-size:12px' }, ago(d.t))),
+        pk.el,
+        h('div', { class: 'row' },
+          h('button', { class: 'btn fill', onclick: act(async () => {
+            if (!pk.ok()) return toast('세 합의 초식을 모두 고르세요');
+            await q(db.rpc('answer_duel', { p_duel: d.id, p_moves: pk.get() }));
+            await loadAll(); await loadMine(); render();
+          }) }, '응전'),
+          h('button', { class: 'btn ghost', onclick: act(async () => {
+            if (!confirm('도전을 거절할까요?')) return;
+            await q(db.rpc('decline_duel', { p_duel: d.id })); await loadMine(); toast('도전을 거절했습니다'); render();
+          }) }, '거절')));
+    });
+    const sel = h('select', { class: 'pick' }, h('option', { value: '' }, '상대 고르기'),
+      ocs.filter(o => !canAct(o)).map(o => h('option', { value: o.id, selected: o.id === target }, `${o.npc ? 'NPC · ' : ''}${o.name} · ${realm(o.lv)} · ${o.weapon}`)));
+    const pk = picker();
+    return [ph('비무'),
+      incoming.length ? h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, `받은 도전장 ${incoming.length}`),
+        h('p', { class: 'desc' }, '세 합의 초식을 골라 응전하거나, 거절할 수 있습니다.'), incoming) : null,
+      sec('도전장 보내기', '세 합의 초식을 미리 정해 도전장을 보내면, 상대도 초식을 정해 응전합니다. 서로 상대의 초식을 모른 채 합을 겨룹니다.',
+        h('div', { class: 'card' }, sel, pk.el, h('button', { class: 'btn fill', onclick: act(async () => {
+          if (!sel.value) return toast('상대를 고르세요');
+          if (!pk.ok()) return toast('세 합의 초식을 모두 고르세요');
+          await q(db.rpc('send_duel', { p_from: me, p_to: sel.value, p_moves: pk.get() }));
+          await loadMine(); toast('도전장을 보냈습니다'); render();
+        }) }, '도전장 보내기')),
+        duelsOut.map(d => h('div', { class: 'res', style: 'grid-template-columns:1fr auto' }, h('div', {}, by(d.to)?.name || '?', h('span', { class: 'mut' }, '에게 보낸 도전장 · 응답 대기')),
+          h('div', {}, h('button', { class: 'link', onclick: act(async () => { await q(db.rpc('decline_duel', { p_duel: d.id })); await loadMine(); render(); }) }, '철회'))))),
+      sec('세 가지 초식', '화살표가 가리키는 쪽을 이깁니다. 같은 초식끼리 만나면 비깁니다.',
+        h('div', { class: 'rule' }, diagram(),
+          h('dl', {},
+            h('div', {}, h('dt', {}, h('span', {}, '攻'), '공 · 정면으로 칩니다'), h('dd', {}, '허초를 쓰는 상대에게는 틈이 생깁니다. 그 틈을 파고들어 허를 이깁니다.')),
+            h('div', {}, h('dt', {}, h('span', {}, '守'), '수 · 막고 되받아칩니다'), h('dd', {}, '곧게 들어오는 공격은 흘려 내고 되받아칠 수 있습니다. 공을 이깁니다.')),
+            h('div', {}, h('dt', {}, h('span', {}, '虛'), '허 · 허초로 흔듭니다'), h('dd', {}, '굳게 지키는 상대를 거짓 동작으로 흔들어 빈틈을 만듭니다. 수를 이깁니다.')))),
+        h('p', { class: 'note' }, `세 합 중 이긴 합마다 1점, 비긴 합은 0점입니다. 여기에 무기 특성, 무공 경지(단계당 ${SET.pathBonus}점), 패용 병기(${GRADES.map(g => `${g.name} ${g.bonus}`).join(' · ')}점), 경지 차이(큰 경지 하나당 ${SET.levelStep}점, 최대 ${SET.levelCap}점)를 더해 승부를 가립니다. 점수 차가 ${SET.drawMargin} 이하면 무승부입니다.`)),
+      sec('무기 특성', `무기마다 특성이 하나씩 있습니다. 내 무기는 ${myWeapon}입니다.`,
+        h('div', { class: 'tbl' }, h('table', {},
+          h('thead', {}, h('tr', {}, ['무기', '특성', '효과', '성향'].map(t => h('th', {}, t)))),
+          h('tbody', {}, Object.entries(WEAPONS).map(([w, x]) => h('tr', { class: w === myWeapon ? 'mine' : '' },
+            h('td', { class: 'w' }, w), h('td', {}, x.trait), h('td', {}, traitDesc(x)), h('td', { class: 'mut' }, x.style))))))),
+      sec('최근 비무', '● 표시는 왼쪽 인물이, ○ 표시는 오른쪽 인물이 이긴 합입니다.',
+        results.length ? results.map(r => { const a = by(r.a), b = by(r.b);
+          return h('div', { class: 'res' },
+            h('div', {}, name(a), h('span', { class: 'mut' }, ' ' + (a?.weapon || '')), r.win === r.a ? h('span', { class: 'win' }, '勝') : null),
+            h('div', { class: 'dots', title: ago(r.t) }, r.r.map(x => h('span', { class: 'dot ' + (x === 'l' ? 'l' : x === 'd' ? 'd' : '') }))),
+            h('div', {}, r.win === r.b ? h('span', { class: 'win' }, '勝') : null, h('span', { class: 'mut' }, (b?.weapon || '') + ' '), name(b))); })
+          : empty('아직 비무 기록이 없습니다.'))];
+  }
+
+  // ── 서신 ────────────────────────────────────
+  function pLetters(who) {
+    const ids = [...letters.keys()];
+    who = who || ids[0];
+    const others = ocs.filter(o => o.id !== me);
+    const sendTo = h('select', { class: 'pick', style: 'min-width:0', onchange: e => e.target.value && go('letters', e.target.value) },
+      h('option', { value: '' }, '새 서신'), others.filter(o => !letters.has(o.id)).map(o => h('option', { value: o.id }, o.name)));
+    if (!who || !by(who)) return [ph('서신'), h('div', { class: 'row', style: 'margin-top:24px' }, sendTo), empty('주고받은 서신이 없습니다. 위에서 받는 이를 골라 첫 서신을 보내 보세요.')];
+    if (unread.has(who)) {
+      unread.delete(who);
+      db.from('letters').update({ read_at: new Date().toISOString() }).eq('to_oc', me).eq('from_oc', who).is('read_at', null).then(() => {});
+    }
+    const msgs = letters.get(who) || [];
+    const ta = h('textarea', { placeholder: by(who).name + '에게 보낼 서신', maxlength: 1000 });
+    const box = h('div', { class: 'msgs' }, msgs.length ? msgs.map(m => h('div', { class: 'msg' + (m.me ? ' me' : '') + (m.fly ? ' fly' : '') },
+      h('div', { class: 'body' }, m.body), h('small', {}, m.fly ? `전서구가 날아가는 중 · ${m.fly} 도착 예정` : ago(m.t) + (m.me && m.read ? ' · 읽음' : ''))))
+      : h('p', { class: 'mut', style: 'margin:auto;font-size:13px' }, '첫 서신을 보내 보세요.'));
+    requestAnimationFrame(() => box.scrollTop = box.scrollHeight);
+    const threadIds = [...new Set([who, ...ids])].filter(by);
+    return [ph('서신'),
+      h('div', { class: 'mail' },
+        h('div', { class: 'threads' }, threadIds.map(id => { const m = letters.get(id) || [], last = m[m.length - 1];
+          return h('button', { class: (id === who ? 'on' : '') + (unread.has(id) ? ' unread' : ''), onclick: () => go('letters', id) },
+            h('b', {}, by(id).name), h('small', {}, last ? last.body : '새 서신')); })),
+        h('div', { class: 'conv' },
+          h('div', { class: 'hd' }, h('b', {}, by(who).name), h('span', { class: 'row', style: 'gap:16px' }, sendTo, h('button', { class: 'link', onclick: () => go('profile', who) }, '인물 정보'))),
+          box,
+          h('div', { class: 'in' }, ta, h('button', { class: 'btn fill', onclick: act(async () => {
+            const v = ta.value.trim(); if (!v) return;
+            const r = await q(db.from('letters').insert({ from_oc: me, to_oc: who, body: v }).select().single());
+            if (!letters.has(who)) letters.set(who, []);
+            letters.get(who).push({ id: r.id, me: true, body: v, t: r.created_at, fly: Date.parse(r.arrive_at) > Date.now() ? hm(r.arrive_at) : null });
+            ta.value = ''; toast('전서구를 띄웠습니다'); render();
+          }) }, '보내기'))))];
+  }
+
+  // ── 인물첩 ──────────────────────────────────
+  function pPeople() {
+    const cards = ocs.map(o => h('button', { class: 'pc', 'data-q': [o.name, o.aff, o.weapon, o.title || '', o.npc ? 'NPC' : ''].join(' '), onclick: () => go('profile', o.id) },
+      av(o),
+      h('div', {}, h('span', { class: 'nm', style: 'font-weight:700' }, o.name), ' ', npcTag(o), o.title ? h('span', { class: 'alias', style: 'margin-left:6px;font-size:13px' }, `「${o.title}」`) : null,
+        h('div', { class: 'meta' }, `${realm(o.lv)} · ${o.weapon} · ${o.aff}`), h('p', {}, o.bio || ''))));
+    const s = h('input', { class: 'search', placeholder: '이름, 소속, 무기로 찾기' });
+    s.addEventListener('input', () => cards.forEach(c => c.style.display = c.dataset.q.includes(s.value.trim()) ? '' : 'none'));
+    const owners = n => ocs.filter(x => x.arms.some(a => a.name === n)).map(x => x.name);
+    return [ph('인물첩'), s, h('div', { class: 'grid', style: 'margin-top:8px' }, cards),
+      h('p', { class: 'note', style: 'margin-top:28px' }, '인물은 한 사람에 하나씩 만들 수 있습니다. 무기는 처음 만들 때 고르며, 그 뒤에는 바꿀 수 없습니다.'),
+      sec('명병록', `강호에 이름이 알려진 병기 ${ARMS_LIST.length}자루입니다. 주인이 있는 병기에는 주인의 이름이 적힙니다.`,
+        Object.keys(WEAPONS).map(w => {
+          const list = ARMS_LIST.filter(a => a.type === w).sort((a, b) => gradeIdx(b.grade) - gradeIdx(a.grade));
+          return list.length ? h('div', { class: 'book' }, h('h3', {}, w),
+            list.map(a => h('div', { class: 'book-row' }, gradeTag(a.grade), h('b', {}, `「${a.name}」`), h('span', { class: 'mut lore' }, a.lore), h('span', { class: 'owner' }, owners(a.name).join(', ') || h('span', { class: 'mut' }, '—'))))) : null;
+        }))];
+  }
+  const sealEl = o => h('div', { class: 'seal-frame' + (o.npc ? ' npc' : '') },
+    o.seal ? h('img', { src: o.seal, alt: o.name + ' 인장' }) : h('div', { class: 'seal-ph' }, o.name));
+  function pProfile(id) {
+    const o = by(id);
+    if (!o) return [empty('없는 인물입니다.')];
+    const own = canAct(o), P = pathOf(o.weapon);
+    if (own && editProfile) return profileForm(o);
+    const info = [['자', o.courtesy], ['나이', o.age], ['성별', o.gender], ['출신', o.origin], ['소속', o.aff], ['사문 · 스승', o.master],
+      ['무기', `${o.weapon} · ${WEAPONS[o.weapon]?.trait || ''}`], ['무공 경지', o.path ? `${P.name} · ${P.stages[o.path - 1]}` : null],
+      ['패용 병기', o.equip ? `「${o.equip.name}」 · ${o.equip.grade}` : null], ['생업', o.job]].filter(([, v]) => v);
+    const prose = [['외견', o.look], ['성격', o.persona], ['배경', o.story || o.bio]].filter(([, v]) => v);
+    const own_posts = posts.filter(p => p.oc === id);
+    return [h('div', { class: 'back' }, h('button', { class: 'link', onclick: () => go('people') }, '← 인물첩')),
+      h('div', { class: 'prof', style: 'border-top:1px solid var(--ink)' }, sealEl(o),
+        h('div', { style: 'flex:1;min-width:0' },
+          h('h1', {}, o.name, ' ', npcTag(o)),
+          o.title ? h('div', { class: 'alias', style: 'font-size:16px' }, `「${o.title}」`) : null,
+          h('div', { class: 'mut', style: 'font-size:13px;margin-top:4px' }, `${realmFull(o.lv)} · ${o.weapon} · ${o.aff}`),
+          o.quote ? h('p', { class: 'quote' }, o.quote) : null,
+          h('div', { class: 'row', style: 'margin-top:16px' }, own
+            ? [h('button', { class: 'btn', onclick: () => { editProfile = true; render(); window.scrollTo(0, 0); } }, '프로필 수정'),
+               id === me ? h('button', { class: 'btn ghost', onclick: () => db.auth.signOut().then(() => location.reload()) }, '로그아웃') : null]
+            : [h('button', { class: 'btn', onclick: () => go('letters', o.id) }, '서신 보내기'),
+               h('button', { class: 'btn', onclick: () => go('duel', o.id) }, '비무 신청')]))),
+      h('div', { class: 'nums', style: 'margin-top:0;border-top:none' },
+        h('div', {}, h('small', {}, '명성'), h('b', {}, fmt(o.fame))),
+        h('div', {}, h('small', {}, '비무 전적'), h('b', {}, `${o.w}승 ${o.l}패 ${o.d}무`)),
+        h('div', {}, h('small', {}, '누적 수련'), h('b', {}, o.hours + '시간'))),
+      info.length ? sec('기본', '', h('dl', { class: 'info' }, info.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v))))) : null,
+      prose.map(([k, v]) => sec(k, '', h('p', { class: 'prose' }, v))),
+      o.ties.length ? sec('인연', '', h('ul', { class: 'ties' }, o.ties.filter(t => by(t.oc)).map(t => h('li', {}, name(by(t.oc)), h('span', { class: 'mut' }, t.rel))))) : null,
+      sec('남긴 소문', '', own_posts.length ? own_posts.map(p => postEl(p)) : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 남긴 소문이 없습니다.'))];
+  }
+  function profileForm(o) {
+    const f = {}, draft = { seal: o.seal, file: null, ties: o.ties.map(t => ({ ...t })) };
+    const frame = h('div', {});
+    const drawSeal = () => frame.replaceChildren(sealEl({ ...o, seal: draft.seal }));
+    drawSeal();
+    const file = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    file.addEventListener('change', () => {
+      const fl = file.files[0]; if (!fl) return;
+      if (fl.size > 1024 * 1024) return toast('1MB 이하 이미지만 올릴 수 있습니다');
+      draft.file = fl;
+      const rd = new FileReader(); rd.onload = () => { draft.seal = rd.result; drawSeal(); }; rd.readAsDataURL(fl);
+    });
+    const inp = (k, label, cls) => h('label', { class: cls }, label, f[k] = h('input', { value: o[k] || '', maxlength: k === 'quote' ? 100 : 30 }));
+    const area = (k, label) => h('label', { class: 'wide' }, label, f[k] = h('textarea', { class: 'field', style: 'margin-top:4px', maxlength: 2000 }, o[k] || ''));
+    const tiesBox = h('div', {});
+    const drawTies = () => tiesBox.replaceChildren(...draft.ties.map((t, i) => h('div', { class: 'tie-row' },
+      h('select', { class: 'pick', style: 'min-width:0', onchange: e => { t.oc = e.target.value || null; } }, h('option', { value: '' }, '인물 고르기'),
+        ocs.filter(x => x.id !== o.id).map(x => h('option', { value: x.id, selected: x.id === t.oc }, x.name))),
+      h('input', { class: 'pick', style: 'min-width:0', value: t.rel || '', placeholder: '관계 (예: 사형, 숙적)', maxlength: 30, oninput: e => { t.rel = e.target.value; } }),
+      h('button', { class: 'link', onclick: () => { draft.ties.splice(i, 1); drawTies(); } }, '빼기'))),
+      h('button', { class: 'link', style: 'margin-top:10px', onclick: () => { draft.ties.push({ oc: null, rel: '' }); drawTies(); } }, '+ 인연 더하기'));
+    drawTies();
+    const close = () => { editProfile = false; render(); window.scrollTo(0, 0); };
+    return [h('div', { class: 'back' }, h('button', { class: 'link', onclick: close }, '← 프로필로')),
+      ph('프로필 수정'),
+      h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, '인장'),
+        h('p', { class: 'desc' }, '정사각형 이미지를 권장합니다. PNG, JPG, WEBP 파일을 1MB까지 올릴 수 있습니다.'),
+        h('div', { class: 'row', style: 'gap:20px;align-items:flex-end' }, frame, h('div', { class: 'row' }, file,
+          h('button', { class: 'btn', onclick: () => file.click() }, '이미지 고르기'),
+          h('button', { class: 'btn ghost', onclick: () => { draft.seal = null; draft.file = null; drawSeal(); } }, '지우기')))),
+      sec('기본', '', h('div', { class: 'form' },
+        inp('courtesy', '자(字)'), inp('age', '나이'), inp('gender', '성별'), inp('origin', '출신'),
+        inp('aff', '소속'), inp('master', '사문 · 스승'),
+        h('label', {}, '무기', h('input', { value: o.weapon + ' · 바꿀 수 없음', disabled: true })),
+        h('label', {}, '별호', h('input', { value: o.title || '운영자가 수여', disabled: true })),
+        inp('quote', '한마디', 'wide'), area('bio', '짧은 소개'))),
+      sec('이야기', '', h('div', { class: 'form' }, area('look', '외견'), area('persona', '성격'), area('story', '배경'))),
+      sec('인연', '여기 적은 인연은 내 프로필에 표시됩니다.', tiesBox),
+      h('div', { class: 'row', style: 'margin-top:32px' },
+        h('button', { class: 'btn fill', onclick: act(async () => {
+          if (draft.file) {
+            const ext = (draft.file.name.split('.').pop() || 'png').toLowerCase();
+            const path = `${user.id}/${o.id}-${Date.now()}.${ext}`;
+            await q(db.storage.from(SEAL_BUCKET).upload(path, draft.file, { upsert: true, contentType: draft.file.type }));
+            draft.seal = db.storage.from(SEAL_BUCKET).getPublicUrl(path).data.publicUrl;
+          }
+          Object.entries(f).forEach(([k, el]) => o[k] = el.value.trim());
+          o.aff = o.aff || '무소속';
+          o.seal = draft.seal || null; o.ties = draft.ties.filter(t => t.oc && t.rel.trim());
+          await saveOc(o);
+          toast('프로필을 저장했습니다'); close();
+        }) }, '저장'),
+        h('button', { class: 'btn ghost', onclick: close }, '취소'))];
+  }
+
+  // ── 생활 ────────────────────────────────────
+  const BIAS = { 의원: '약초', 대장장이: '철광석', 숙수: '식재료', 서생: '먹' };
+  const gainText = g => Object.entries(g).filter(([, v]) => v).map(([k, v]) => `${GAIN_LABEL[k]} +${v}`).join(' · ') || '없음';
+  const applyGain = (o, g) => { o.silver += g.silver || 0; o.fame += g.fame || 0; o.insight = (o.insight || 0) + (g.insight || 0); };
+  const addItem = (o, k, n = 1) => { o.bag[k] = (o.bag[k] || 0) + n; };
+  const mastery = xp => MASTERY_XP.filter(t => xp >= t).length - 1;
+  const itemOf = k => ITEMS[k] || ['', 0];
+  function spend(o) {
+    if (o.stamina <= 0) { toast('오늘 기력을 다 썼습니다. 자정에 다시 찹니다'); return false; }
+    o.stamina--; o.jobXp++; return true;
+  }
+  // 선물: 내 것을 덜어 저장하고, 받는 사람 몫은 gifts에 남긴다
+  async function giveFrom(o, to, kind, payload, text) {
+    await saveOc(o);
+    await q(db.from('gifts').insert({ from_oc: o.id, from_name: o.name, to_oc: to, kind, ...payload }));
+    await q(db.from('letters').insert({ from_oc: o.id, to_oc: to, body: `[선물] ${text}` }));
+    toast(`선물을 보냈습니다 · ${by(to).name}에게 ${text}`);
+  }
+  function pLife() {
+    const o = by(me);
+    if (!o.job || !JOBS[o.job]) return [ph('생활'),
+      sec('생업 고르기', '강호에서 먹고살 일을 하나 고릅니다. 생업은 한 달에 한 번 바꿀 수 있습니다.',
+        h('div', { class: 'opts jobs', style: '--n:3' }, Object.entries(JOBS).map(([k, J]) => h('button', { class: 'opt', onclick: act(async () => {
+          o.job = k; o.jobXp = 0; await saveOc(o); toast(k + '의 길을 걷습니다'); render();
+        }) },
+          h('b', {}, `${J.hj} ${k}`), h('span', {}, `${J.work} · ${gainText(J.gain)}`),
+          h('small', {}, Object.keys(J.craft).length ? Object.keys(J.craft).join(', ') + ' 제작' : k === '상인' ? '물건을 두 배 값에 팝니다' : '연주가 소문에 오릅니다')))))];
+
+    const J = JOBS[o.job], m = mastery(o.jobXp), next = MASTERY_XP[m + 1];
+    const head = h('div', { class: 'job' },
+      h('div', { class: 'job-hj' }, J.hj),
+      h('div', { style: 'flex:1;min-width:0' },
+        h('div', { class: 'lbl' }, '생업'), h('div', {}, h('b', {}, o.job), h('span', { class: 'mut', style: 'margin-left:8px;font-size:13px' }, MASTERY[m])),
+        h('div', { class: 'meter', style: 'margin:10px 0 4px' }, h('i', { style: `width:${next ? Math.min(100, (o.jobXp - MASTERY_XP[m]) / (next - MASTERY_XP[m]) * 100) : 100}%` })),
+        h('div', { class: 'under' }, h('span', {}, next ? `다음 · ${MASTERY[m + 1]}` : '최고 숙련'), h('span', {}, next ? `${o.jobXp} / ${next}` : ''))),
+      h('div', { class: 'job-side' },
+        h('div', {}, h('small', {}, '은자'), h('b', {}, fmt(o.silver))),
+        h('div', {}, h('small', {}, '기력'), h('span', { class: 'stam' }, Array.from({ length: SET.stamina }, (_, i) => h('i', { class: i < o.stamina ? 'f' : '' }))))));
+
+    const acts = h('div', { class: 'opts' },
+      h('button', { class: 'opt', onclick: act(async () => {
+        if (!spend(o)) return;
+        const got = [0, 1].map(() => BIAS[o.job] && Math.random() < .6 ? BIAS[o.job] : Object.values(BIAS)[Math.floor(Math.random() * 4)]);
+        got.forEach(k => addItem(o, k));
+        const f = Math.random() * 100 < SET.rateGather ? ' · ' + fortune(o, '채집') : '';
+        await saveOc(o); toast('채집 · ' + got.join(', ') + f); render();
+      }) }, h('b', {}, '채집'), h('span', {}, '산과 강에서 재료를 모읍니다'), h('small', {}, '기력 1 · 재료 2개')),
+      h('button', { class: 'opt', onclick: act(async () => {
+        if (!spend(o)) return;
+        applyGain(o, J.gain);
+        if (o.job === '악사') newPost('game', me, `${o.name} — 저잣거리에서 한 곡을 탔다. 걸음을 멈춘 이가 많았다.`);
+        await saveOc(o); toast(`${J.work} · ${gainText(J.gain)}`); render();
+      }) }, h('b', {}, J.work), h('span', {}, '생업으로 하루 벌이를 합니다'), h('small', {}, `기력 1 · ${gainText(J.gain)}`)),
+      h('button', { class: 'opt', onclick: act(async () => {
+        if (!spend(o) || !ERRANDS.length) return;
+        const [t, g] = ERRANDS[Math.floor(Math.random() * ERRANDS.length)];
+        applyGain(o, g); newPost('game', me, `객잔 의뢰 — ${o.name}, ${t}.`);
+        const f = Math.random() * 100 < SET.rateErrand ? ' · ' + fortune(o, '객잔 의뢰') : '';
+        await saveOc(o); toast(`의뢰 완료 · ${gainText(g)}${f}`); render();
+      }) }, h('b', {}, '객잔 의뢰'), h('span', {}, '강호인의 소소한 부탁을 들어줍니다'), h('small', {}, '기력 1 · 소문에 기록됩니다')));
+
+    const recipes = Object.entries(J.craft);
+    const craft = recipes.length ? h('div', { class: 'tbl' }, h('table', {},
+      h('thead', {}, h('tr', {}, ['물품', '재료', '효과', ''].map(t => h('th', {}, t)))),
+      h('tbody', {}, recipes.map(([item, mats]) => {
+        const ok = Object.entries(mats).every(([k, n]) => (o.bag[k] || 0) >= n);
+        return h('tr', {}, h('td', { class: 'w' }, item), h('td', {}, Object.entries(mats).map(([k, n]) => `${k} ${n}`).join(' · ')), h('td', { class: 'mut' }, itemOf(item)[0]),
+          h('td', {}, h('button', { class: 'link', disabled: !ok, onclick: act(async () => {
+            if (!spend(o)) return;
+            Object.entries(mats).forEach(([k, n]) => o.bag[k] -= n); addItem(o, item);
+            await saveOc(o); toast(item + ' 완성'); render();
+          }) }, ok ? '만들기' : '재료 부족')));
+      }))))
+      : h('p', { class: 'note', style: 'margin-top:0' }, o.job === '상인' ? '상인은 물건을 만들지 않는 대신, 보따리의 물건을 두 배 값에 팝니다.' : '이 생업은 만드는 물건이 없습니다.');
+
+    const items = Object.entries(o.bag).filter(([, n]) => n > 0);
+    const price = k => itemOf(k)[1] * (o.job === '상인' ? 2 : 1);
+    const giftSel = onPick => h('select', { class: 'pick', style: 'min-width:0;width:auto;font-size:13px;padding:0', onchange: act(async e => { const v = e.target.value; e.target.value = ''; if (v) await onPick(v); }) },
+      h('option', { value: '' }, '선물'), ocs.filter(x => x.id !== o.id).map(x => h('option', { value: x.id }, x.name)));
+    const USE = {
+      소환단: () => { o.breakBonus = (o.breakBonus || 0) + 10; return '다음 돌파 성공률 +10%'; },
+      '정비한 무기': () => { o.duelBuff = 0.25; return '다음 비무 판정 +0.25'; },
+      보양식: () => { o.retreatBuff = 20; return '다음 폐관 내공 +20%'; },
+      '비급 필사본': () => { o.insight += 30; return '깨달음 +30'; },
+    };
+    const bag = items.length ? h('div', { class: 'tbl' }, h('table', {},
+      h('thead', {}, h('tr', {}, ['물품', '수', '설명', ''].map(t => h('th', {}, t)))),
+      h('tbody', {}, items.map(([k, n]) => h('tr', {},
+        h('td', { class: 'w' }, k), h('td', {}, n), h('td', { class: 'mut' }, itemOf(k)[0]),
+        h('td', {}, h('span', { class: 'row', style: 'flex-wrap:nowrap;gap:14px' },
+          USE[k] ? h('button', { class: 'link', onclick: act(async () => {
+            o.bag[k]--; const t = USE[k](); await saveOc(o); toast(`${k} 사용 · ${t}`); render();
+          }) }, '쓰기') : null,
+          h('button', { class: 'link', onclick: act(async () => { o.bag[k]--; o.silver += price(k); await saveOc(o); toast(`${k} 팔기 · 은자 +${price(k)}`); render(); }) }, `팔기 ${price(k)}`),
+          giftSel(async to => { o.bag[k]--; await giveFrom(o, to, 'item', { name: k, qty: 1 }, `${k} 하나`); render(); }))))))))
+      : h('p', { class: 'mut', style: 'font-size:13px' }, '보따리가 비어 있습니다.');
+
+    const armsTbl = o.arms.length ? h('div', { class: 'tbl' }, h('table', {},
+      h('thead', {}, h('tr', {}, ['이름', '등급', '종류', '내력', ''].map(t => h('th', {}, t)))),
+      h('tbody', {}, o.arms.map(a => {
+        const gi = gradeIdx(a.grade), fit = a.type === o.weapon;
+        return h('tr', {}, h('td', { class: 'w' }, `「${a.name}」`), h('td', {}, gradeTag(a.grade)), h('td', {}, a.type),
+          h('td', { class: 'mut' }, loreOf(a.name), h('div', { style: 'color:var(--ink);margin-top:2px' }, fit ? `비무 판정 +${GRADES[gi]?.bonus ?? 0}` : '내 무기와 종류가 다릅니다')),
+          h('td', {}, h('span', { class: 'row', style: 'flex-wrap:nowrap;gap:14px' },
+            fit ? (o.equip?.uid === a.uid ? h('span', { style: 'font-size:13px' }, '패용 중') : h('button', { class: 'link', onclick: act(async () => { o.equip = a; await saveOc(o); toast(`「${a.name}」 패용`); render(); }) }, '패용')) : null,
+            giftSel(async to => {
+              o.arms = o.arms.filter(x => x !== a); if (o.equip?.uid === a.uid) o.equip = null;
+              await giveFrom(o, to, 'arm', { name: a.name, arm: { name: a.name, type: a.type, grade: a.grade } }, `병기 「${a.name}」`);
+              render();
+            }))));
+      }))))
+      : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 이름 붙은 병기가 없습니다. 기연에서 얻을 수 있습니다.');
+
+    return [ph('생활'), head,
+      sec('오늘 할 일', `하루 기력은 ${SET.stamina}입니다. 매일 자정에 다시 찹니다. 일 하나에 기력 1이 듭니다.`, acts),
+      sec('제작', `${o.job}의 솜씨로 물건을 만듭니다. 한 번 만들 때 기력 1이 듭니다.`, craft),
+      sec('보따리', '물건을 쓰거나 팔 수 있습니다. 선물은 서신과 함께 전서구로 보내집니다.', bag),
+      sec('병기', '패용한 병기 하나만 비무에 쓰입니다. 내 무기와 종류가 다른 병기는 선물할 수 있습니다.', armsTbl),
+      h('p', { class: 'note', style: 'margin-top:28px' }, '생업은 한 달에 한 번 바꿀 수 있습니다.')];
+  }
+
+  // ── 운영 ────────────────────────────────────
+  let adminTab = 'people', cfgTab = 'realm', cfgDraft = null, editing = null;
+  function pAdmin() {
+    if (!isAdmin) return [empty('운영자만 볼 수 있습니다.')];
+    const tabs = h('div', { class: 'filters', style: 'margin-top:8px' }, [['people', '인물'], ['event', '시대 사건'], ['config', '설정']].map(([k, l]) =>
+      h('button', { class: adminTab === k ? 'on' : '', onclick: () => { adminTab = k; render(); } }, l)));
+    return [ph('운영'), tabs, adminTab === 'people' ? adminPeople() : adminTab === 'event' ? adminEvent() : adminConfig()];
+  }
+  function npcForm() {
+    const o = editing === 'new' ? { name: '', title: '', lv: 1, qi: 0, fame: 0, silver: 0, insight: 0, path: 0, weapon: Object.keys(WEAPONS)[0], aff: '', w: 0, l: 0, d: 0, bio: '' } : by(editing);
+    const f = {};
+    const inp = (k, label, type = 'text') => h('label', {}, label, f[k] = h('input', { type, value: o[k] ?? '' }));
+    const form = h('div', { class: 'form' },
+      inp('name', '이름'), inp('title', '별호'), inp('aff', '소속'),
+      h('label', {}, '무기', f.weapon = h('select', { disabled: editing !== 'new' }, Object.keys(WEAPONS).map(w => h('option', { selected: w === o.weapon }, w)))),
+      h('label', {}, '경지', f.lv = h('select', {}, Array.from({ length: REALMS.length * 3 }, (_, i) => h('option', { value: i + 1, selected: i + 1 === o.lv }, realmFull(i + 1))))),
+      inp('qi', '내공 · 진기', 'number'), inp('fame', '명성', 'number'), inp('silver', '은자', 'number'), inp('insight', '깨달음', 'number'),
+      h('label', {}, '무공 경지', f.path = h('select', {}, h('option', { value: 0, selected: !o.path }, '없음'),
+        pathOf(o.weapon).stages.map((s, i) => h('option', { value: i + 1, selected: i + 1 === o.path }, `${i + 1}단계 · ${s}`)))),
+      h('label', {}, '전적 (승 · 패 · 무)', h('span', { class: 'row', style: 'flex-wrap:nowrap;gap:6px' },
+        f.w = h('input', { type: 'number', value: o.w, style: 'width:33%' }), f.l = h('input', { type: 'number', value: o.l, style: 'width:33%' }), f.d = h('input', { type: 'number', value: o.d, style: 'width:33%' }))),
+      h('label', { class: 'wide' }, '짧은 소개', f.bio = h('textarea', { class: 'field', style: 'margin-top:4px' }, o.bio || '')));
+    return h('div', { class: 'card', style: 'margin-top:14px' }, form,
+      h('div', { class: 'row', style: 'margin-top:16px' },
+        h('button', { class: 'btn fill', onclick: act(async () => {
+          const v = Object.fromEntries(Object.entries(f).map(([k, el]) => [k, el.type === 'number' || k === 'lv' || k === 'path' ? +el.value : el.value.trim()]));
+          if (!v.name) return toast('이름을 입력하세요');
+          const row = { name: v.name, title: v.title || null, lv: v.lv, qi: v.qi, fame: v.fame, silver: v.silver, insight: v.insight, path: v.path, w: v.w, l: v.l, d: v.d };
+          if (editing === 'new') {
+            await q(db.from('ocs').insert({ ...row, npc: true, weapon: v.weapon, profile: { aff: v.aff || '무소속', bio: v.bio }, life: { stamina: SET.stamina, day: todayKST(), bag: {} } }));
+          } else {
+            await q(db.from('ocs').update({ ...row, profile: { ...pickKeys(o, PROFILE_KEYS), aff: v.aff || '무소속', bio: v.bio } }).eq('id', o.id));
+          }
+          editing = null; await loadAll(); toast('NPC를 저장했습니다'); render();
+        }) }, '저장'),
+        h('button', { class: 'btn ghost', onclick: () => { editing = null; render(); } }, '취소')));
+  }
+  function adminPeople() {
+    const players = ocs.filter(o => !o.npc), npcs = ocs.filter(o => o.npc);
+    return [
+      h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, '별호 수여'),
+        h('p', { class: 'desc' }, '수련 시간과 비무 전적을 참고해 별호를 정해 주세요. 수여하면 소식에 올라갑니다.'),
+        players.length ? h('div', { class: 'tbl' }, h('table', {},
+          h('thead', {}, h('tr', {}, ['인물', '경지', '명성', '수련', '전적', '별호', ''].map(t => h('th', {}, t)))),
+          h('tbody', {}, [...players].sort((a, b) => b.fame - a.fame).map(o => {
+            const inp = h('input', { value: o.title || '', placeholder: '없음', maxlength: 20 });
+            return h('tr', {}, h('td', {}, name(o)), h('td', {}, realmFull(o.lv)), h('td', {}, fmt(o.fame)), h('td', {}, o.hours + '시간'), h('td', {}, `${o.w}·${o.l}·${o.d}`),
+              h('td', {}, inp), h('td', {}, h('button', { class: 'link', onclick: act(async () => {
+                const v = inp.value.trim(); if (v === (o.title || '')) return;
+                await q(db.from('ocs').update({ title: v || null }).eq('id', o.id));
+                o.title = v || null;
+                if (v) newPost('title', o.id, `강호가 ${o.name}에게 「${v}」라는 별호를 붙였다.`);
+                toast(v ? '별호를 수여했습니다' : '별호를 거두었습니다'); render();
+              }) }, '수여')));
+          })))) : empty('아직 인물이 없습니다.')),
+      sec('NPC', '',
+        npcs.length ? h('div', { class: 'tbl' }, h('table', {},
+          h('thead', {}, h('tr', {}, ['이름', '경지', '무기', '명성', '전적', ''].map(t => h('th', {}, t)))),
+          h('tbody', {}, npcs.map(o => h('tr', {}, h('td', {}, name(o)), h('td', {}, realmFull(o.lv)), h('td', {}, o.weapon), h('td', {}, fmt(o.fame)), h('td', {}, `${o.w}·${o.l}·${o.d}`),
+            h('td', {}, h('button', { class: 'link', onclick: () => { editing = o.id; render(); } }, '편집'))))))) : null,
+        editing ? npcForm() : h('button', { class: 'btn', style: 'margin-top:14px', onclick: () => { editing = 'new'; render(); } }, 'NPC 추가'),
+        h('p', { class: 'note' }, 'NPC는 수치를 자유롭게 정할 수 있습니다. 오른쪽 활동 인물에서 NPC를 고르면, 그 NPC로 수련·비무·생활·소문·서신을 모두 할 수 있습니다.')),
+      giftForm(),
+    ];
+  }
+  // 선물 보내기: 운영자나 NPC 이름으로, 가진 것과 상관없이 보낼 수 있다
+  let giftKind = 'item';
+  const giftSt = { from: 'admin', to: 'all', item: '소환단', qty: 1, arm: '추수', silver: 100, msg: '' };
+  function giftForm() {
+    const S = giftSt, players = ocs.filter(o => !o.npc);
+    const kinds = h('div', { class: 'row', style: 'gap:20px' }, [['item', '물품'], ['arm', '병기'], ['silver', '은자']].map(([k, l]) =>
+      h('label', { class: 'chk' }, h('input', { type: 'radio', name: 'gift-kind', checked: giftKind === k, onchange: () => { giftKind = k; render(); } }), l)));
+    const fields = h('div', { class: 'form', style: 'margin-top:16px' },
+      lab('보내는 이', fSel(S, 'from', [['admin', '강호 운영'], ...ocs.filter(o => o.npc).map(o => [o.id, `NPC · ${o.name}`])])),
+      lab('받는 이', fSel(S, 'to', [['all', `모든 인물 (${players.length}명)`], ...ocs.map(o => [o.id, (o.npc ? 'NPC · ' : '') + o.name])])),
+      giftKind === 'item' ? [lab('물품', fSel(S, 'item', Object.keys(ITEMS).map(k => [k, k]))), lab('수량', num(S, 'qty'))]
+        : giftKind === 'arm' ? lab('병기', fSel(S, 'arm', ARMS_LIST.map(a => [a.name, `「${a.name}」 · ${a.grade} · ${a.type}`])), 'wide')
+        : lab('은자', num(S, 'silver', 100)),
+      lab('함께 보낼 말', fIn(S, 'msg', 'text', { placeholder: '적지 않아도 됩니다', maxlength: 200 }), 'wide'));
+    const send = act(async () => {
+      const targets = S.to === 'all' ? players : [by(S.to)].filter(t => t && t.id !== S.from);
+      if (!targets.length) return toast('받는 이를 확인해 주세요');
+      if (giftKind === 'item' && !(S.qty > 0)) return toast('수량을 확인해 주세요');
+      if (giftKind === 'silver' && !(S.silver > 0)) return toast('은자를 확인해 주세요');
+      const arm = ARMS_LIST.find(x => x.name === S.arm);
+      if (giftKind === 'arm') {
+        if (!arm) return toast('병기를 골라 주세요');
+        if (GRADES[gradeIdx(arm.grade)]?.unique && (targets.length > 1 || ocs.some(x => x.arms.some(y => y.name === arm.name))))
+          return toast('한 자루뿐인 등급의 병기는 주인이 없을 때, 한 사람에게만 보낼 수 있습니다');
+      }
+      const fromOc = S.from === 'admin' ? null : by(S.from);
+      const fromName = fromOc ? fromOc.name : '강호 운영';
+      const what = giftKind === 'item' ? `${S.item} ${S.qty}개` : giftKind === 'arm' ? `병기 「${arm.name}」` : `은자 ${fmt(S.silver)}`;
+      const payload = giftKind === 'item' ? { name: S.item, qty: S.qty } : giftKind === 'arm' ? { name: arm.name, arm: { name: arm.name, type: arm.type, grade: arm.grade } } : { qty: S.silver };
+      await q(db.from('gifts').insert(targets.map(t => ({ from_oc: fromOc?.id || null, from_name: fromName, to_oc: t.id, kind: giftKind, msg: S.msg, ...payload }))));
+      if (fromOc) await q(db.from('letters').insert(targets.map(t => ({ from_oc: fromOc.id, to_oc: t.id, body: `[선물] ${what}` + (S.msg ? `\n${S.msg}` : '') }))));
+      toast(`선물을 보냈습니다 · ${S.to === 'all' ? `모든 인물 ${targets.length}명` : targets[0].name}에게 ${what}`);
+      S.msg = ''; await loadMine(); render();
+    });
+    return sec('선물 보내기', '운영자나 NPC의 이름으로 물품, 병기, 은자를 보낼 수 있습니다. 가진 것과 상관없이 보낼 수 있고, 받은 사람이 접속하면 팝업으로 알려 줍니다.',
+      h('div', { class: 'card' }, kinds, fields, h('div', { class: 'row', style: 'margin-top:18px' }, h('button', { class: 'btn fill', onclick: send }, '보내기'))));
+  }
+  function adminEvent() {
+    const ta = h('textarea', { class: 'field', placeholder: '공지 또는 시대 사건 (소문과 오른쪽 공지란에 올라갑니다)', maxlength: 500 });
+    return [
+      h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, '경지의 문'),
+        h('p', { class: 'desc' }, '문을 열면 시대 사건 공지가 함께 올라갑니다.'),
+        TIERS.filter(t => t.gate).map(t => h('div', { class: 'bt', style: 'margin-top:10px' },
+          h('div', {}, h('b', {}, `${t.gate} · ${REALMS.slice(t.from, (TIERS[TIERS.indexOf(t) + 1]?.from ?? REALMS.length)).join(' · ')}`),
+            h('p', {}, (t.open ? '열림 · ' : '닫힘 · ') + `열면 ${REALMS[t.from - 1]} 대성에 이른 인물이 ${REALMS[t.from]} 돌파를 시도할 수 있습니다.`)),
+          h('button', { class: 'btn' + (t.open ? '' : ' fill'), onclick: act(async () => {
+            t.open = !t.open;
+            await saveSettings();
+            if (t.open) newPost('notice', null, `시대 사건: ${t.gate} 개방. ${REALMS[t.from]}부터의 길이 열렸다.`);
+            toast(`${t.gate} · ${t.open ? '열림' : '닫힘'}`); render();
+          }) }, t.open ? '닫기' : '열기')))),
+      sec('공지 올리기', '', ta,
+        h('div', { style: 'margin-top:10px' }, h('button', { class: 'btn fill', onclick: () => {
+          const v = ta.value.trim(); if (!v) return;
+          ta.value = ''; newPost('notice', null, v); toast('공지를 올렸습니다'); render();
+        } }, '올리기'))),
+    ];
+  }
+
+  // ── 운영 > 설정 ─────────────────────────────
+  // 입력은 바로 cfgDraft에 반영되고, 저장을 눌러야 실제 설정에 들어간다
+  const fIn = (obj, key, type = 'text', attrs = {}) => h('input', { type, value: obj[key] ?? '', ...attrs,
+    oninput: e => { obj[key] = type === 'number' ? +e.target.value : e.target.value; } });
+  const fSel = (obj, key, opts, isNum) => h('select', { onchange: e => { obj[key] = isNum ? +e.target.value : e.target.value; } },
+    opts.map(([v, l]) => h('option', { value: v, selected: v === obj[key] }, l)));
+  const fChk = (obj, key) => h('input', { type: 'checkbox', checked: !!obj[key], onchange: e => { obj[key] = e.target.checked; } });
+  const lab = (label, el, cls) => h('label', { class: cls }, label, el);
+  const grid = (cols, rows) => h('div', { class: 'tbl' }, h('table', { class: 'cfg' },
+    h('thead', {}, h('tr', {}, cols.map(c => h('th', {}, c)))), h('tbody', {}, rows.map(r => h('tr', {}, r.map(c => h('td', {}, c)))))));
+  const addLink = (label, fn) => h('button', { class: 'link', style: 'margin-top:10px', onclick: () => { fn(); render(); } }, label);
+  const addRow = (placeholder, fn) => {
+    const i = h('input', { class: 'pick', placeholder });
+    return h('div', { class: 'addrow' }, i, h('button', { class: 'link', onclick: () => { const v = i.value.trim(); if (v) fn(v); } }, '+ 더하기'));
+  };
+  const del = fn => h('button', { class: 'link', onclick: () => { if (fn() !== false) render(); } }, '빼기');
+  const num = (o, k, w = 64, step) => fIn(o, k, 'number', { style: `width:${w}px`, step });
+
+  const CFG_TABS = [['realm', '경지'], ['retreat', '폐관 · 확률'], ['weapon', '무기'], ['path', '무공 · 비무'], ['arms', '병기'], ['fortune', '기연'], ['life', '생활']];
+  const CFG_EDITORS = {
+    realm: D => [
+      sec('경지', '경지 이름과, 다음 경지로 넘어갈 때의 돌파 성공률입니다.',
+        grid(['', '경지', '돌파 성공률(%)', '구간'], D.REALMS.map((n, i) => [
+          h('span', { class: 'mut' }, i + 1), fIn(D.REALMS, i),
+          i < D.REALMS.length - 1 ? num(D.BREAK_RATE, i) : h('span', { class: 'mut' }, '마지막'),
+          h('span', { class: 'mut' }, tierOf(i, D.TIERS).name)])),
+        h('div', { class: 'row', style: 'gap:18px' },
+          addLink('+ 경지 더하기', () => { D.REALMS.push('새 경지'); D.BREAK_RATE.push(5); }),
+          addLink('마지막 경지 빼기', () => {
+            if (ocs.some(o => rIdx(o.lv) >= D.REALMS.length - 1)) return toast('마지막 경지에 이른 인물이 있어 뺄 수 없습니다');
+            D.REALMS.pop(); D.BREAK_RATE.pop();
+          }))),
+      sec('작은 단계', '큰 경지 하나를 세 단계로 나눕니다.',
+        h('div', { class: 'row', style: 'gap:14px' }, D.SUBS.map((s, i) => fIn(D.SUBS, i, 'text', { class: 'pick', style: 'min-width:0;width:110px' })))),
+      sec('구간', '구간마다 기운 이름이 다릅니다. 문이 있는 구간은 시대 사건으로 문을 열어야 오를 수 있습니다.',
+        grid(['구간', '시작 경지', '기운 이름', '문 이름'], D.TIERS.map((t, i) => [
+          fIn(t, 'name'), i === 0 ? h('span', { class: 'mut' }, D.REALMS[0]) : fSel(t, 'from', D.REALMS.map((n, j) => [j, n]), true),
+          fIn(t, 'energy'), i === 0 ? h('span', { class: 'mut' }, '없음') : fIn(t, 'gate')]))),
+      sec('내공 공식', '다음 작은 단계까지 필요한 내공은 기본값 × 증가율^(단계 - 1)입니다.',
+        h('div', { class: 'form' }, lab('기본값', num(D.SET, 'qiBase')), lab('증가율', num(D.SET, 'qiGrowth', 64, 0.01)),
+          lab('돌파 실패 시 잃는 비율(%)', num(D.SET, 'failLoss')),
+          h('p', { class: 'mut wide', style: 'font-size:12px' }, '지금 값으로 · ' + [1, 10, 20, 30].map(lv => `${lv}단계 ${fmt(Math.round(D.SET.qiBase * D.SET.qiGrowth ** (lv - 1)))}`).join(' · ')))),
+    ],
+    retreat: D => [
+      sec('폐관', '폐관 시간마다 기연과 주화입마가 일어날 확률입니다.',
+        grid(['시간', '기연(%)', '주화입마(%)', ''], D.RETREATS.map((r, i) => [num(r, 'h'), num(r, 'luck'), num(r, 'dev'), del(() => { D.RETREATS.splice(i, 1); })])),
+        addLink('+ 폐관 시간 더하기', () => D.RETREATS.push({ h: 8, luck: 18, dev: 10 }))),
+      sec('폐관으로 얻는 내공', '1시간에 얻는 내공은 기본값 × 증가율^(단계 - 1)입니다.',
+        h('div', { class: 'form' }, lab('기본값', num(D.SET, 'gainBase')), lab('증가율', num(D.SET, 'gainGrowth', 64, 0.01)))),
+      sec('기연 확률', '폐관 밖에서 기연이 일어날 확률과, 기연에 병기가 따라올 확률입니다.',
+        h('div', { class: 'form' }, lab('채집(%)', num(D.SET, 'rateGather')), lab('객잔 의뢰(%)', num(D.SET, 'rateErrand')),
+          lab('기연에 병기가 따라옴(%)', num(D.SET, 'armExtra')), lab('내 무기 종류로 나옴(%)', num(D.SET, 'armOwnType')))),
+    ],
+    weapon: D => [
+      sec('무기와 특성', '특성은 다섯 유형 중 하나를 고르고 값을 정합니다. 효과 문구는 자동으로 만들어집니다.',
+        grid(['무기', '특성 이름', '유형', '값', '효과', '성향', ''], Object.entries(D.WEAPONS).map(([w, x]) => [
+          h('b', { class: 'serif' }, w), fIn(x, 'trait', 'text', { style: 'width:100px' }),
+          h('select', { onchange: e => { x.kind = e.target.value; x.param = { move: '공', round: 1, shield: 1 }[x.kind] ?? 0.5; render(); } },
+            Object.entries(TRAIT_KINDS).map(([k, [l]]) => h('option', { value: k, selected: k === x.kind }, l))),
+          x.kind === 'move' ? fSel(x, 'param', Object.entries(MOVES).map(([k, hj]) => [k, `${hj} ${k}`])) : num(x, 'param', 56, 0.5),
+          h('span', { class: 'mut', style: 'white-space:nowrap' }, traitDesc(x)),
+          fIn(x, 'style', 'text', { style: 'width:120px' }),
+          del(() => { if (ocs.some(o => o.weapon === w)) { toast('이 무기를 쓰는 인물이 있어 뺄 수 없습니다'); return false; } delete D.WEAPONS[w]; })])),
+        addRow('새 무기 이름', v => {
+          if (D.WEAPONS[v]) return toast('이미 있는 무기입니다');
+          D.WEAPONS[v] = { trait: '새 특성', kind: 'draw', param: 0.5, style: '', path: v + ' 무공', stages: D.PATH_NEED.map((_, i) => `${i + 1}단계`) }; render();
+        }),
+        h('p', { class: 'note' }, '무기 이름은 인물이 고른 값이라 바꿀 수 없습니다. 새로 더하거나, 쓰는 인물이 없을 때 뺄 수 있습니다.')),
+      sec('무공 경지 이름', '무기마다 무공의 길 이름과 단계 이름을 정합니다.',
+        Object.entries(D.WEAPONS).map(([w, x]) => h('div', { class: 'cfg-card' },
+          h('div', { class: 'row', style: 'margin-bottom:10px;gap:14px' }, h('b', { class: 'serif' }, w), fIn(x, 'path', 'text', { class: 'pick', style: 'min-width:0;width:140px' })),
+          h('div', { class: 'stage-grid' }, x.stages.map((s, i) => lab(`${i + 1}단계`, fIn(x.stages, i, 'text', { class: 'pick', style: 'min-width:0' }))))))),
+    ],
+    path: D => [
+      sec('무공 경지 단계', '단계마다 필요한 깨달음과 몸의 최소 경지입니다.',
+        grid(['단계', '필요 깨달음', '최소 경지', ''], D.PATH_NEED.map((n, i) => [
+          h('span', { class: 'mut' }, `${i + 1}단계`), num(D.PATH_NEED, i, 80), fSel(D.PATH_REALM, i, D.REALMS.map((r, j) => [j, r]), true),
+          i === D.PATH_NEED.length - 1 ? del(() => {
+            if (ocs.some(o => (o.path || 0) >= D.PATH_NEED.length)) { toast('마지막 단계에 이른 인물이 있어 뺄 수 없습니다'); return false; }
+            D.PATH_NEED.pop(); D.PATH_REALM.pop(); Object.values(D.WEAPONS).forEach(x => x.stages.pop());
+          }) : ''])),
+        addLink('+ 단계 더하기', () => { D.PATH_NEED.push(1500); D.PATH_REALM.push(D.REALMS.length - 1); Object.values(D.WEAPONS).forEach(x => x.stages.push('새 단계')); })),
+      sec('비무 판정', '세 합의 점수에 더해지는 값입니다.',
+        h('div', { class: 'form' }, lab('무공 경지 단계당', num(D.SET, 'pathBonus', 64, 0.05)), lab('큰 경지 차이 하나당', num(D.SET, 'levelStep', 64, 0.05)),
+          lab('경지 차이 최대', num(D.SET, 'levelCap', 64, 0.25)), lab('무승부 범위', num(D.SET, 'drawMargin', 64, 0.05)))),
+    ],
+    arms: D => [
+      sec('등급', '등급마다 비무 보너스와 드랍 비중을 정합니다. 한 자루뿐인 등급은 이미 주인이 있으면 나오지 않습니다.',
+        grid(['등급', '비무 보너스', '드랍 비중', '한 자루뿐'], D.GRADES.map(g => [fIn(g, 'name', 'text', { style: 'width:80px' }), num(g, 'bonus', 64, 0.05), num(g, 'odds'), fChk(g, 'unique')]))),
+      sec('병기 목록', `모두 ${D.ARMS_LIST.length}자루입니다. 내력은 명병록과 병기를 얻을 때의 팝업에 보입니다.`,
+        grid(['이름', '종류', '등급', '내력', ''], D.ARMS_LIST.map((a, i) => [
+          fIn(a, 'name', 'text', { style: 'width:90px' }), fSel(a, 'type', Object.keys(D.WEAPONS).map(w => [w, w])), fSel(a, 'grade', D.GRADES.map(g => [g.name, g.name])),
+          fIn(a, 'lore', 'text', { style: 'min-width:260px' }), del(() => { D.ARMS_LIST.splice(i, 1); })])),
+        addLink('+ 병기 더하기', () => D.ARMS_LIST.push({ type: Object.keys(D.WEAPONS)[0], grade: D.GRADES[0].name, name: '새 병기', lore: '' }))),
+    ],
+    fortune: D => [
+      sec('기연 목록', '비중이 클수록 자주 나옵니다. 같은 장소에서 나오는 기연끼리 비교합니다.',
+        D.FORTUNES.map((f, i) => h('div', { class: 'cfg-card' },
+          h('div', { class: 'form' },
+            lab('이름', fIn(f, 'name')), lab('비중', num(f, 'w')), lab('최소 폐관 시간', num(f, 'min')),
+            lab('나오는 곳', h('span', { class: 'row', style: 'gap:10px' }, PLACES.map(p => h('span', { class: 'chk' },
+              h('input', { type: 'checkbox', checked: f.where.includes(p), onchange: e => { f.where = e.target.checked ? [...f.where, p] : f.where.filter(x => x !== p); } }), p)))),
+            lab('내공 (폐관 n시간분)', num(f, 'qiHours')), lab('깨달음', num(f, 'insight')), lab('명성', num(f, 'fame')), lab('다음 돌파 보너스(%)', num(f, 'breakBonus')),
+            lab('무공 경지', h('span', { class: 'chk' }, fChk(f, 'path'), '한 단계 깨우침')),
+            lab('병기', h('span', { class: 'row', style: 'gap:12px' },
+              h('span', { class: 'chk' }, h('input', { type: 'checkbox', checked: !!f.drop, onchange: e => { f.drop = e.target.checked ? D.GRADES.map(g => g.odds) : null; render(); } }), '확정 드랍'),
+              f.drop ? D.GRADES.map((g, gi) => h('span', { class: 'chk' }, g.name, num(f.drop, gi, 56))) : h('span', { class: 'mut', style: 'font-size:12px' }, `꺼져 있으면 ${D.SET.armExtra}% 확률로 따라옵니다`)), 'wide'),
+            lab('소문 문구', fIn(f, 'post'), 'wide')),
+          h('div', { class: 'row', style: 'justify-content:space-between;margin-top:12px' }, h('span', { class: 'mut', style: 'font-size:12px' }, fortuneDesc(f, D.GRADES)), del(() => { D.FORTUNES.splice(i, 1); })))),
+        addLink('+ 기연 더하기', () => D.FORTUNES.push(F({ name: '새 기연', where: ['폐관'], w: 10, post: '알 수 없는 인연을 만났다.' })))),
+    ],
+    life: D => [
+      sec('생업', '하루 일로 얻는 것과 만드는 물건입니다. 재료는 "약초 3, 먹 1"처럼 적습니다.',
+        grid(['생업', '한자', '일', '은자', '명성', '깨달음', '만드는 물건', '재료'], Object.entries(D.JOBS).map(([k, J]) => {
+          const [item, mats] = Object.entries(J.craft)[0] || ['', {}];
+          const st = { item, mats: Object.entries(mats).map(([m, n]) => `${m} ${n}`).join(', ') };
+          const sync = () => { J.craft = st.item ? { [st.item]: Object.fromEntries(st.mats.split(',').map(s => s.trim().split(/\s+/)).filter(p => p[0]).map(([m, n]) => [m, +n || 1])) } : {}; };
+          return [h('b', { class: 'serif' }, k), fIn(J, 'hj', 'text', { style: 'width:36px;min-width:0' }), fIn(J, 'work', 'text', { style: 'width:90px' }),
+            num(J.gain, 'silver', 56), num(J.gain, 'fame', 56), num(J.gain, 'insight', 56),
+            h('input', { value: st.item, placeholder: '없음', style: 'width:100px', oninput: e => { st.item = e.target.value.trim(); sync(); } }),
+            h('input', { value: st.mats, placeholder: '약초 3', style: 'width:110px', oninput: e => { st.mats = e.target.value; sync(); } })];
+        }))),
+      sec('물품', '물품 설명과 팔 때 받는 값입니다.',
+        grid(['물품', '설명', '값', ''], Object.entries(D.ITEMS).map(([k, it]) => [h('b', { class: 'serif' }, k), fIn(it, 0, 'text', { style: 'min-width:200px' }), num(it, 1), del(() => { delete D.ITEMS[k]; })])),
+        addRow('새 물품 이름', v => { if (D.ITEMS[v]) return toast('이미 있는 물품입니다'); D.ITEMS[v] = ['', 10]; render(); })),
+      sec('객잔 의뢰', '의뢰를 맡으면 이 중 하나가 무작위로 나옵니다.',
+        grid(['내용', '은자', '명성', '깨달음', ''], D.ERRANDS.map((e, i) => [fIn(e, 0, 'text', { style: 'min-width:240px' }), num(e[1], 'silver', 56), num(e[1], 'fame', 56), num(e[1], 'insight', 56), del(() => { D.ERRANDS.splice(i, 1); })])),
+        addLink('+ 의뢰 더하기', () => D.ERRANDS.push(['새 의뢰를 마쳤다', { silver: 10 }]))),
+      sec('숙련과 기력', '',
+        grid(['숙련', '필요 경험'], D.MASTERY.map((m, i) => [fIn(D.MASTERY, i, 'text', { style: 'width:100px' }), num(D.MASTERY_XP, i)])),
+        h('div', { class: 'form', style: 'margin-top:14px' }, lab('하루 기력', num(D.SET, 'stamina')))),
+    ],
+  };
+  function adminConfig() {
+    if (!cfgDraft) cfgDraft = structuredClone(CFG);
+    return [
+      h('div', { class: 'subtabs' }, CFG_TABS.map(([k, l]) => h('button', { class: cfgTab === k ? 'on' : '', onclick: () => { cfgTab = k; render(); } }, l))),
+      CFG_EDITORS[cfgTab](cfgDraft),
+      h('div', { class: 'savebar' },
+        h('span', { class: 'mut' }, '저장하면 모든 인물에게 바로 적용됩니다'),
+        h('span', { class: 'row' },
+          h('button', { class: 'btn ghost', onclick: () => { cfgDraft = structuredClone(DEFAULTS); toast('기본값을 불러왔습니다. 저장해야 적용됩니다'); render(); } }, '기본값'),
+          h('button', { class: 'btn ghost', onclick: () => { cfgDraft = null; toast('바꾼 내용을 되돌렸습니다'); render(); } }, '되돌리기'),
+          h('button', { class: 'btn fill', onclick: act(saveCfg) }, '저장'))),
+    ];
+  }
+  async function saveCfg() {
+    const D = cfgDraft;
+    // 등급 이름을 바꾸면 병기 목록의 등급도 따라 바꾼다 (이미 나온 병기는 다음 저장 때 주인 쪽에서 맞춰진다)
+    GRADES.forEach((g, i) => {
+      const n = D.GRADES[i]?.name;
+      if (n && n !== g.name) D.ARMS_LIST.forEach(a => { if (a.grade === g.name) a.grade = n; });
+    });
+    Object.keys(CFG).forEach(k => replaceIn(CFG[k], D[k]));
+    await saveSettings();
+    cfgDraft = null; toast('설정을 저장했습니다'); render();
+  }
+
+  const PAGES = { timeline: pTimeline, thread: pThread, train: pTrain, duel: pDuel, life: pLife, letters: pLetters, people: pPeople, profile: pProfile, admin: pAdmin };
+
+  // 폐관이 끝나는 순간 한 번만 화면을 다시 그려 출관 버튼을 연다
+  const clockDone = new Set();
+  function tickClock() {
+    document.querySelectorAll('[data-until]').forEach(el => {
+      const s = Math.max(0, Math.floor((+el.dataset.until - Date.now()) / 1000));
+      el.textContent = s ? `${Math.floor(s / 3600)}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}` : '폐관 완료';
+      if (!s && !clockDone.has(el.dataset.until) && !typing()) { clockDone.add(el.dataset.until); render(); }
+    });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
