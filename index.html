@@ -622,10 +622,10 @@
   const saveSettings = () => q(db.from('settings').update({ data: structuredClone(CFG), updated_at: new Date().toISOString() }).eq('id', 1));
 
   // 전송량을 아끼기 위해 처음(과 5분마다)에만 전체를 받고, 그 사이에는 바뀐 것만 받는다
-  const POST_COLS = 'id, oc_id, kind, body, reply_to, created_at';
+  const POST_COLS = 'id, oc_id, kind, body, reply_to, created_at, edited_at';
   const PAGE = 100;                                   // 객잔 글을 한 번에 불러오는 개수
-  const toPost = r => ({ id: r.id, kind: r.kind, oc: r.oc_id, body: r.body, t: r.created_at, reply_to: r.reply_to, likes: [] });
-  let settingsFound = false, settingsAt = null, syncOc = '', maxPostId = 0, minTopId = null, morePosts = false;
+  const toPost = r => ({ id: r.id, kind: r.kind, oc: r.oc_id, body: r.body, t: r.created_at, edited: r.edited_at, reply_to: r.reply_to, likes: [] });
+  let settingsFound = false, settingsAt = null, syncOc = '', syncEdit = '', maxPostId = 0, minTopId = null, morePosts = false;
   const allLoaded = () => [...posts, ...[...replies.values()].flat()];
   // 화면이 들고 있는 인물 객체를 바꾸지 않고 내용만 새로 채운다
   function mergeOc(r) {
@@ -662,6 +662,8 @@
     maxPostId = Math.max(maxPostId, ...ids, 0);
     const top = posts.map(p => p.id).filter(id => typeof id === 'number');
     minTopId = top.length ? Math.min(...top) : null;
+    // 수정 확인 기준 시각: 불러온 글 가운데 가장 최근의 작성·수정 시각 (서버 시계 기준)
+    allLoaded().filter(p => typeof p.id === 'number').forEach(p => { const t = p.edited && p.edited > p.t ? p.edited : p.t; if (t > syncEdit) syncEdit = t; });
   }
   async function loadAll(full = true) {
     // 설정: 저장 시각이 바뀌었을 때만 내용을 받는다
@@ -689,6 +691,15 @@
     } else {
       const fresh = await q(db.from('posts').select(POST_COLS).gt('id', maxPostId).order('id'));
       fresh.map(toPost).forEach(addPost);
+      // 그 사이 고쳐진 글은 내용만 바꿔 넣는다
+      if (syncEdit) {
+        const edited = await q(db.from('posts').select('id, body, edited_at').gt('edited_at', syncEdit));
+        edited.forEach(r => {
+          const p = allLoaded().find(x => x.id === r.id);
+          if (p && editingPost !== p.id) { p.body = r.body; p.edited = r.edited_at; }
+          if (r.edited_at > syncEdit) syncEdit = r.edited_at;   // 불러오지 않은 옛 글이 고쳐져도 기준 시각은 넘긴다
+        });
+      }
     }
     recount();
     await loadReactions();
@@ -807,7 +818,9 @@
   function newPost(kind, oc, body, replyTo = null) {
     const p = { id: 'tmp-' + Math.random(), kind, oc, body, t: new Date().toISOString(), reply_to: replyTo, likes: [] };
     if (replyTo) { if (!replies.has(replyTo)) replies.set(replyTo, []); replies.get(replyTo).push(p); } else posts.unshift(p);
-    q(db.from('posts').insert({ oc_id: oc, kind, body, reply_to: replyTo }).select('id').single()).then(r => { p.id = r.id; }).catch(() => {});
+    // 저장이 끝나면 다시 그려 수정·삭제 버튼이 바로 나오게 한다
+    q(db.from('posts').insert({ oc_id: oc, kind, body, reply_to: replyTo }).select('id, created_at').single())
+      .then(r => { p.id = r.id; p.t = r.created_at; if (started && !typing()) render(); }).catch(() => {});
     return p;
   }
 
@@ -965,29 +978,55 @@
     else { await q(db.from('reactions').insert({ post_id: p.id, oc_id: me })); p.likes.push(me); }
     render();
   }
+  const isTmp = p => String(p.id).startsWith('tmp');
   async function delPost(p) {
-    if (!confirm('이 글을 지울까요?')) return;
-    await q(db.from('posts').delete().eq('id', p.id));
-    posts = posts.filter(x => x !== p);
-    if (p.reply_to) replies.set(p.reply_to, (replies.get(p.reply_to) || []).filter(x => x !== p));
+    if (isTmp(p)) return toast('방금 쓴 글을 저장하는 중입니다. 잠시 뒤에 다시 눌러 주세요');
+    if (!(await ask('글 지우기', '이 글을 지울까요? 달린 답글도 함께 지워집니다.', '지우기'))) return;
+    // 권한이 없으면 오류 없이 0줄이 지워지므로, 지워진 줄을 돌려받아 확인한다
+    const rows = await q(db.from('posts').delete().eq('id', p.id).select('id'));
+    if (!rows.length) return toast('지울 수 없는 글입니다');
+    posts = posts.filter(x => x.id !== p.id);
+    replies.delete(p.id);
+    if (p.reply_to) replies.set(p.reply_to, (replies.get(p.reply_to) || []).filter(x => x.id !== p.id));
+    toast('글을 지웠습니다');
     page === 'thread' && arg === p.id ? go('timeline') : render();
+  }
+  // 글 고치기: 글 자리에 입력칸을 띄운다
+  let editingPost = null;
+  function postBody(p) {
+    if (editingPost !== p.id) return h('p', {}, p.body);
+    const ta = h('textarea', { class: 'field', maxlength: 500, style: 'margin:6px 0 8px' }, p.body);
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); });
+    return h('div', {}, ta, h('div', { class: 'row', style: 'margin-bottom:10px' },
+      h('button', { class: 'btn fill', onclick: act(async () => {
+        const v = ta.value.trim();
+        if (!v) return toast('내용을 적어 주세요');
+        if (v === p.body) { editingPost = null; return render(); }
+        const rows = await q(db.from('posts').update({ body: v }).eq('id', p.id).select('body, edited_at'));
+        if (!rows.length) return toast('고칠 수 없는 글입니다');
+        p.body = rows[0].body; p.edited = rows[0].edited_at;
+        editingPost = null; toast('글을 고쳤습니다'); render();
+      }) }, '저장'),
+      h('button', { class: 'btn ghost', onclick: () => { editingPost = null; render(); } }, '취소')));
   }
   function postEl(p, isReply) {
     const o = by(p.oc), liked = p.likes.includes(me);
-    const canDel = isAdmin || (p.kind === 'post' && canAct(o));
-    const acts = [
+    const mineOrAdmin = isAdmin || (p.kind === 'post' && canAct(o));
+    const when = ago(p.t) + (p.edited ? ' · 수정됨' : '');
+    const acts = editingPost === p.id ? [] : [
       isReply ? null : h('button', { onclick: () => go('thread', p.id) }, '답글 ' + ((replies.get(p.id) || []).length || '')),
       h('button', { class: liked ? 'on' : '', onclick: act(() => toggleLike(p, liked)) }, '공감 ' + (p.likes.length || '')),
-      canDel ? h('button', { onclick: act(() => delPost(p)) }, '삭제') : null];
+      mineOrAdmin && !isTmp(p) ? h('button', { onclick: () => { editingPost = p.id; render(); } }, '수정') : null,
+      mineOrAdmin ? h('button', { onclick: act(() => delPost(p)) }, '삭제') : null];
     if (p.kind !== 'post') {
       return h('article', { class: 'post sys' }, h('div', { class: 'lbl' }, LABEL[p.kind]),
-        h('div', {}, h('p', {}, p.body), h('div', { class: 'acts' }, h('span', {}, ago(p.t)), acts)));
+        h('div', {}, postBody(p), h('div', { class: 'acts' }, h('span', {}, when), acts)));
     }
     return h('article', { class: 'post' + (isReply ? ' reply' : '') }, av(o),
       h('div', {},
         h('div', { class: 'h' }, name(o), npcTag(o), o?.title ? h('span', { class: 'alias' }, `「${o.title}」`) : null,
-          o ? h('span', { class: 'mut' }, `${realm(o.lv)} · ${o.weapon}`) : null, h('time', {}, ago(p.t))),
-        h('p', {}, p.body), h('div', { class: 'acts' }, acts)));
+          o ? h('span', { class: 'mut' }, `${realm(o.lv)} · ${o.weapon}`) : null, h('time', {}, when)),
+        postBody(p), h('div', { class: 'acts' }, acts)));
   }
   function composer(onSend, placeholder) {
     const o = by(me);
@@ -1181,7 +1220,20 @@
         h('button', { class: 'btn fill', onclick: close }, '확인')));
     document.body.append(bg); bg.querySelector('.modal > .btn').focus();
   }
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelector('.modal-bg .modal > .btn')?.click(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelector('.modal-bg .modal > .btn, .modal-bg .modal .ask-no')?.click(); });
+  // 확인 창. 브라우저의 confirm()은 카카오톡 같은 앱 안 브라우저에서 막히는 경우가 있어 직접 띄운다
+  function ask(title, text, okLabel = '확인') {
+    return new Promise(resolve => {
+      const done = v => { bg.remove(); resolve(v); };
+      const bg = h('div', { class: 'modal-bg', onclick: e => { if (e.target === bg) done(false); } },
+        h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+          h('h2', { style: 'font-size:20px' }, title), h('p', { class: 'story' }, text),
+          h('div', { class: 'row', style: 'justify-content:center' },
+            h('button', { class: 'btn ghost ask-no', onclick: () => done(false) }, '취소'),
+            h('button', { class: 'btn fill', onclick: () => done(true) }, okLabel))));
+      document.body.append(bg); bg.querySelector('.btn.fill').focus();
+    });
+  }
 
   // ── 비무 ────────────────────────────────────
   function picker() {
@@ -1230,7 +1282,7 @@
             await loadAll(false); await loadMine(); render();
           }) }, '응전'),
           h('button', { class: 'btn ghost', onclick: act(async () => {
-            if (!confirm('도전을 거절할까요?')) return;
+            if (!(await ask('도전 거절', '이 도전을 거절할까요?', '거절'))) return;
             await q(db.rpc('decline_duel', { p_duel: d.id })); await loadMine(); toast('도전을 거절했습니다'); render();
           }) }, '거절')));
     });
