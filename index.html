@@ -612,9 +612,10 @@
   });
 
   const ERR = { '23505': '이미 쓰이는 이름입니다.', '23514': '입력한 내용의 길이를 확인해 주세요.', '42501': '권한이 없습니다.' };
+  const ERR_MSG = [[/row-level security/, '권한이 없어 저장하지 못했습니다.'], [/exceeded the maximum allowed size|Payload too large/i, '파일이 너무 큽니다.']];
   async function q(req) {
     const { data, error } = await req;
-    if (error) { toast(ERR[error.code] || error.message); throw error; }
+    if (error) { toast(ERR[error.code] || ERR_MSG.find(([re]) => re.test(error.message || ''))?.[1] || error.message); throw error; }
     return data;
   }
   const saveOc = o => q(db.from('ocs').update(toRow(o)).eq('id', o.id));
@@ -1399,7 +1400,8 @@
           if (draft.file) {
             const ext = (draft.file.name.split('.').pop() || 'png').toLowerCase();
             const path = `${user.id}/${o.id}-${Date.now()}.${ext}`;
-            await q(db.storage.from(SEAL_BUCKET).upload(path, draft.file, { upsert: true, contentType: draft.file.type }));
+            // 파일 이름에 시각이 붙어 늘 새 파일이므로 덮어쓰기(upsert)는 쓰지 않는다. upsert는 보기 권한까지 요구한다
+            await q(db.storage.from(SEAL_BUCKET).upload(path, draft.file, { contentType: draft.file.type }));
             draft.seal = db.storage.from(SEAL_BUCKET).getPublicUrl(path).data.publicUrl;
           }
           Object.entries(f).forEach(([k, el]) => o[k] = el.value.trim());
