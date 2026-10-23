@@ -598,6 +598,7 @@
       ...r.profile, ...r.life, id: r.id, owner: r.owner, npc: r.npc, name: r.name, title: r.title, weapon: r.weapon,
       lv: r.lv, qi: Number(r.qi), fame: r.fame, silver: r.silver, insight: r.insight, path: r.path, w: r.w, l: r.l, d: r.d, hours: r.hours,
       retreat_hours: r.retreat_hours, retreat_until: r.retreat_until ? Date.parse(r.retreat_until) : null, arms: r.arms || [],
+      created_at: r.created_at, updated_at: r.updated_at,
     };
     o.aff = o.aff || '무소속'; o.bag = o.bag || {}; o.jobXp = o.jobXp || 0; o.ties = o.ties || [];
     o.stamina = o.stamina ?? SET.stamina; o.breakBonus = o.breakBonus || 0;
@@ -619,29 +620,98 @@
   const saveOc = o => q(db.from('ocs').update(toRow(o)).eq('id', o.id));
   const saveSettings = () => q(db.from('settings').update({ data: structuredClone(CFG), updated_at: new Date().toISOString() }).eq('id', 1));
 
-  const toPost = r => ({ id: r.id, kind: r.kind, oc: r.oc_id, body: r.body, t: r.created_at, reply_to: r.reply_to, likes: (r.reactions || []).map(x => x.oc_id) });
-  let settingsFound = false;
-  async function loadAll() {
-    const [set, ocRows, postRows] = await Promise.all([
-      q(db.from('settings').select('data').eq('id', 1).maybeSingle()),
-      q(db.from('ocs').select('*').order('created_at')),
-      q(db.from('posts').select('id, oc_id, kind, body, reply_to, created_at, reactions(oc_id)').order('created_at', { ascending: false }).limit(400)),
-    ]);
-    settingsFound = applySettings(set?.data);
-    ocs = ocRows.map(fromRow);
-    const all = postRows.map(toPost);
-    posts = all.filter(p => !p.reply_to);
-    replies = new Map();
-    all.filter(p => p.reply_to).reverse().forEach(p => { if (!replies.has(p.reply_to)) replies.set(p.reply_to, []); replies.get(p.reply_to).push(p); });
+  // 전송량을 아끼기 위해 처음(과 5분마다)에만 전체를 받고, 그 사이에는 바뀐 것만 받는다
+  const POST_COLS = 'id, oc_id, kind, body, reply_to, created_at';
+  const PAGE = 100;                                   // 객잔 글을 한 번에 불러오는 개수
+  const toPost = r => ({ id: r.id, kind: r.kind, oc: r.oc_id, body: r.body, t: r.created_at, reply_to: r.reply_to, likes: [] });
+  let settingsFound = false, settingsAt = null, syncOc = '', maxPostId = 0, minTopId = null, morePosts = false;
+  const allLoaded = () => [...posts, ...[...replies.values()].flat()];
+  // 화면이 들고 있는 인물 객체를 바꾸지 않고 내용만 새로 채운다
+  function mergeOc(r) {
+    const n = fromRow(r), o = by(r.id);
+    if (!o) { ocs.push(n); return; }
+    Object.keys(o).forEach(k => delete o[k]);
+    Object.assign(o, n);
+  }
+  // 새 글을 끼워 넣는다. 내가 방금 쓴 글(임시 id)이 돌아오면 그 글에 id만 붙인다
+  function addPost(p) {
+    const list = allLoaded();
+    if (list.some(x => x.id === p.id)) return;
+    const tmp = list.find(x => String(x.id).startsWith('tmp') && x.oc === p.oc && x.body === p.body && x.kind === p.kind && (x.reply_to ?? null) === (p.reply_to ?? null));
+    if (tmp) { tmp.id = p.id; tmp.t = p.t; return; }
+    if (p.reply_to) { if (!replies.has(p.reply_to)) replies.set(p.reply_to, []); replies.get(p.reply_to).push(p); }
+    else posts.unshift(p);
+  }
+  async function loadReplies(ids) {
+    if (!ids.length) return;
+    const rows = await q(db.from('posts').select(POST_COLS).in('reply_to', ids).order('id'));
+    rows.map(toPost).forEach(addPost);
+  }
+  // 공감은 불러온 글 가운데 가장 오래된 글부터 끝까지만 받는다
+  async function loadReactions() {
+    const ids = allLoaded().map(p => p.id).filter(id => typeof id === 'number');
+    if (!ids.length) return;
+    const rows = await q(db.from('reactions').select('post_id, oc_id').gte('post_id', Math.min(...ids)));
+    const likes = new Map();
+    rows.forEach(r => { if (!likes.has(r.post_id)) likes.set(r.post_id, []); likes.get(r.post_id).push(r.oc_id); });
+    allLoaded().forEach(p => { if (typeof p.id === 'number') p.likes = likes.get(p.id) || []; });
+  }
+  function recount() {
+    const ids = allLoaded().map(p => p.id).filter(id => typeof id === 'number');
+    maxPostId = Math.max(maxPostId, ...ids, 0);
+    const top = posts.map(p => p.id).filter(id => typeof id === 'number');
+    minTopId = top.length ? Math.min(...top) : null;
+  }
+  async function loadAll(full = true) {
+    // 설정: 저장 시각이 바뀌었을 때만 내용을 받는다
+    const st = await q(db.from('settings').select('updated_at').eq('id', 1).maybeSingle());
+    if (full || st?.updated_at !== settingsAt) {
+      const s = await q(db.from('settings').select('data, updated_at').eq('id', 1).maybeSingle());
+      settingsAt = s?.updated_at; settingsFound = applySettings(s?.data);
+    }
+    // 인물: 전체를 받을 때는 사라진 인물도 정리한다
+    let oq = db.from('ocs').select('*').order('updated_at');
+    if (!full && syncOc) oq = oq.gt('updated_at', syncOc);
+    const rows = await q(oq);
+    if (full) { const keep = new Set(rows.map(r => r.id)); ocs = ocs.filter(o => keep.has(o.id)); }
+    rows.forEach(r => { mergeOc(r); if (r.updated_at > syncOc) syncOc = r.updated_at; });
+    ocs.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+    // 객잔 글: 전체를 받을 때는 최근 PAGE개와 그 답글, 그 사이에는 새로 생긴 글만
+    if (full) {
+      const top = await q(db.from('posts').select(POST_COLS).is('reply_to', null).order('id', { ascending: false }).limit(PAGE));
+      const keepTmp = allLoaded().filter(p => String(p.id).startsWith('tmp'));
+      posts = []; replies = new Map(); maxPostId = 0;
+      top.reverse().map(toPost).forEach(addPost);
+      morePosts = top.length === PAGE;
+      await loadReplies(posts.map(p => p.id));
+      keepTmp.forEach(addPost);
+    } else {
+      const fresh = await q(db.from('posts').select(POST_COLS).gt('id', maxPostId).order('id'));
+      fresh.map(toPost).forEach(addPost);
+    }
+    recount();
+    await loadReactions();
+  }
+  // 객잔 맨 아래 '이전 글 더 보기'
+  async function loadMore() {
+    if (minTopId == null) return;
+    const older = await q(db.from('posts').select(POST_COLS).is('reply_to', null).lt('id', minTopId).order('id', { ascending: false }).limit(PAGE));
+    const ps = older.map(toPost);
+    posts.push(...ps);
+    morePosts = older.length === PAGE;
+    await loadReplies(ps.map(p => p.id));
+    recount();
+    await loadReactions();
+    render();
   }
   // 활동 인물 기준: 서신, 비무, 받은 선물
   async function loadMine() {
     if (!me) return;
     const [ls, dIn, dOut, done, pend, gifts] = await Promise.all([
-      q(db.from('letters').select('*').or(`from_oc.eq.${me},to_oc.eq.${me}`).order('created_at').limit(600)),
+      q(db.from('letters').select('*').or(`from_oc.eq.${me},to_oc.eq.${me}`).order('created_at', { ascending: false }).limit(300)).then(r => r.reverse()),
       q(db.from('duels').select('*').eq('defender', me).eq('status', 'pending').order('created_at')),
       q(db.from('duels').select('*').eq('challenger', me).eq('status', 'pending').order('created_at')),
-      q(db.from('duels').select('*').eq('status', 'done').order('resolved_at', { ascending: false }).limit(30)),
+      q(db.from('duels').select('*').eq('status', 'done').order('resolved_at', { ascending: false }).limit(20)),
       q(db.from('duels').select('*').eq('status', 'done').or(`and(challenger.eq.${me},applied_a.eq.false),and(defender.eq.${me},applied_b.eq.false)`)),
       q(db.from('gifts').select('*').eq('to_oc', me).eq('seen', false).order('created_at')),
     ]);
@@ -781,8 +851,14 @@
     await dailyReset();
     await loadMine();
     $('#gate').replaceChildren(); $('.wrap').style.display = '';
+    lastSync = Date.now();
     render();
-    if (!started) { started = true; setInterval(refresh, 30000); setInterval(tickClock, 1000); }
+    if (!started) {
+      started = true;
+      setInterval(refresh, 30000); setInterval(tickClock, 1000);
+      // 다른 탭이나 앱을 보다가 돌아오면 바로 한 번 새로 불러온다
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastSync > 30e3) refresh(true); });
+    }
   }
   // 기력은 한국 시간 자정마다 다시 찬다
   async function dailyReset() {
@@ -814,9 +890,15 @@
         npc ? h('label', { class: 'chk' }, npc, '운영자 · 이 인물을 NPC로 만들기') : null,
         h('div', { class: 'row' }, h('button', { class: 'btn fill', onclick: save }, '인물 만들기'), h('button', { class: 'link', onclick: () => db.auth.signOut().then(() => location.reload()) }, '로그아웃')), err)]);
   }
-  async function refresh() {
+  // 30초마다 바뀐 것만 받고, 10번째(약 5분)마다 또는 오래 비웠다 돌아오면 전체를 받는다.
+  // 창을 보고 있지 않을 때는 아무것도 받지 않는다
+  let ticks = 0, lastSync = 0;
+  async function refresh(force) {
+    if (document.hidden && !force) return;
+    const full = ++ticks % 10 === 0 || Date.now() - lastSync > 5 * 60e3;
     try {
-      await loadAll(); await loadMine();
+      await loadAll(full); await loadMine();
+      lastSync = Date.now();
       if (typing()) { renderNav(); renderAside(); } else render();
     } catch (e) { console.error(e); }
   }
@@ -924,7 +1006,8 @@
       composer(v => { newPost('post', me, v); render(); }, '강호에 한마디 남기기'),
       h('div', { class: 'filters' }, [['all', '전체'], ['talk', '교류'], ['news', '소식']].map(([k, l]) =>
         h('button', { class: filter === k ? 'on' : '', onclick: () => { filter = k; render(); } }, l))),
-      list.length ? list.map(p => postEl(p)) : empty('객잔이 아직 조용합니다. 첫 이야기를 남겨 보세요.')];
+      list.length ? list.map(p => postEl(p)) : empty('객잔이 아직 조용합니다. 첫 이야기를 남겨 보세요.'),
+      morePosts ? h('div', { style: 'text-align:center;margin-top:20px' }, h('button', { class: 'btn ghost', onclick: act(loadMore) }, '이전 글 더 보기')) : null];
   }
   function pThread(id) {
     const p = posts.find(x => x.id === id);
@@ -1143,7 +1226,7 @@
           h('button', { class: 'btn fill', onclick: act(async () => {
             if (!pk.ok()) return toast('세 합의 초식을 모두 고르세요');
             await q(db.rpc('answer_duel', { p_duel: d.id, p_moves: pk.get() }));
-            await loadAll(); await loadMine(); render();
+            await loadAll(false); await loadMine(); render();
           }) }, '응전'),
           h('button', { class: 'btn ghost', onclick: act(async () => {
             if (!confirm('도전을 거절할까요?')) return;
@@ -1482,7 +1565,7 @@
           } else {
             await q(db.from('ocs').update({ ...row, profile: { ...pickKeys(o, PROFILE_KEYS), aff: v.aff || '무소속', bio: v.bio } }).eq('id', o.id));
           }
-          editing = null; await loadAll(); toast('NPC를 저장했습니다'); render();
+          editing = null; await loadAll(false); toast('NPC를 저장했습니다'); render();
         }) }, '저장'),
         h('button', { class: 'btn ghost', onclick: () => { editing = null; render(); } }, '취소')));
   }
