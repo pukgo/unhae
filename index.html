@@ -592,9 +592,8 @@
   const mine = () => ocs.filter(canAct);
   const todayKST = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
-  // 인물 한 줄 ↔ 화면에서 쓰는 객체. profile·life는 펼쳐서 쓰고 저장할 때 다시 묶는다
+  // 인물 한 줄 → 화면에서 쓰는 객체. profile·life는 펼쳐서 쓴다. 저장할 수 있는 것은 profile뿐이다
   const PROFILE_KEYS = ['aff', 'bio', 'courtesy', 'age', 'gender', 'origin', 'master', 'quote', 'look', 'persona', 'story', 'ties', 'seal', 'nick'];
-  const LIFE_KEYS = ['job', 'jobXp', 'stamina', 'day', 'bag', 'breakBonus', 'duelBuff', 'retreatBuff'];
   const pickKeys = (o, ks) => Object.fromEntries(ks.filter(k => o[k] !== undefined).map(k => [k, o[k]]));
   function fromRow(r) {
     const o = {
@@ -608,11 +607,8 @@
     o.equip = o.arms.find(a => a.uid === r.equip) || null;
     return o;
   }
-  const toRow = o => ({
-    lv: o.lv, qi: o.qi, fame: o.fame, silver: o.silver, insight: o.insight, path: o.path, w: o.w, l: o.l, d: o.d, hours: o.hours,
-    retreat_hours: o.retreat_hours || null, retreat_until: o.retreat_until ? new Date(o.retreat_until).toISOString() : null,
-    profile: pickKeys(o, PROFILE_KEYS), life: pickKeys(o, LIFE_KEYS), arms: o.arms, equip: o.equip?.uid || null,
-  });
+  // 한국 시간 자정이 지났으면 서버가 다음 행동 때 기력을 채운다. 화면에는 미리 찬 값으로 보여 준다
+  const staminaOf = o => o.day === todayKST() ? (o.stamina ?? SET.stamina) : SET.stamina;
 
   const ERR = { '23505': '이미 쓰이는 이름입니다.', '23514': '입력한 내용의 길이를 확인해 주세요.', '42501': '권한이 없습니다.' };
   const ERR_MSG = [[/row-level security/, '권한이 없어 저장하지 못했습니다.'], [/exceeded the maximum allowed size|Payload too large/i, '파일이 너무 큽니다.']];
@@ -628,21 +624,18 @@
     }
     return data;
   }
-  // 내공이 다음 작은 단계만큼 쌓이면 저절로 오른다. 대성(벽)에서는 멈추고 돌파를 기다린다
-  function rise(o) {
-    const from = o.lv;
-    while (o.lv < REALMS.length * 3 && sIdx(o.lv) < 2 && o.qi >= needQi(o.lv)) { o.qi -= needQi(o.lv); o.lv++; }
-    if (o.lv > from) popup({ mark: '進', kicker: '경지 상승', title: realmFull(o.lv), story: sIdx(o.lv) === 2 ? '벽 앞에 섰습니다. 수련 화면에서 돌파를 시도할 수 있습니다.' : '내공이 쌓여 한 걸음 나아갔습니다.' });
+  // 게임 행동은 모두 서버 함수가 계산한다. 서버가 돌려준 인물 줄로 화면을 맞추고, 새 소식 글을 받아 온다
+  async function play(fn, args = {}) {
+    const r = await q(db.rpc(fn, { p_oc: me, ...args }));
+    if (r?.oc) mergeOc(r.oc);
+    loadAll(false).then(() => { if (!typing()) render(); }).catch(() => {});
+    return r;
   }
-  const saveOc = o => { if (canAct(o)) rise(o); return q(db.from('ocs').update(toRow(o)).eq('id', o.id)); };
-  // 저장된 내 인물을 다시 읽어 온다. 휴대폰과 PC에서 함께 켜 둬도 서로 덮어쓰지 않도록, 무언가 하기 직전에 부른다
-  async function syncMe() {
-    const o = by(me);
-    if (!started || !canAct(o)) return;
-    const r = await q(db.from('ocs').select('*').eq('id', o.id).maybeSingle());
-    if (r) mergeOc(r);
-    const day = todayKST();
-    if (o.day !== day) { o.stamina = SET.stamina; o.day = day; }   // 켜 둔 채 자정을 넘겨도 기력이 찬다
+  // 내공이 쌓여 작은 단계가 저절로 올랐으면 알린다 (계산은 서버가 한다)
+  function risen(r) {
+    if (!r?.rise) return;
+    const lv = r.rise.lv;
+    popup({ mark: '進', kicker: '경지 상승', title: realmFull(lv), story: sIdx(lv) === 2 ? '벽 앞에 섰습니다. 수련 화면에서 돌파를 시도할 수 있습니다.' : '내공이 쌓여 한 걸음 나아갔습니다.' });
   }
   const saveSettings = () => q(db.from('settings').update({ data: structuredClone(CFG), updated_at: new Date().toISOString() }).eq('id', 1));
 
@@ -766,26 +759,20 @@
     results = done.filter(d => d.result).map(d => ({ a: d.challenger, b: d.defender, r: d.result.rounds.map(x => x.r), win: d.result.winner, t: d.resolved_at }));
     await applyPending(pend, gifts);
   }
-  // 다른 사람이 남긴 비무 결과와 선물을 내 인물에 반영한다 (인물은 주인만 고친다)
+  // 비무 결과와 받은 선물을 팝업으로 알린다. 수치는 서버가 이미 반영해 두었다
   async function applyPending(duels, gifts) {
     const o = by(me);
     if (!canAct(o) || (!duels.length && !gifts.length)) return;
-    // 창이 둘 열려 있어도 한 번만 반영되도록, '반영함' 표시를 먼저 차지한 것만 반영한다
-    const claim = async (table, col, ids) => ids.length
-      ? (await q(db.from(table).update({ [col]: true }).in('id', ids).eq(col, false).select('id'))).map(r => r.id) : [];
-    const gotA = await claim('duels', 'applied_a', duels.filter(d => d.challenger === me).map(d => d.id));
-    const gotB = await claim('duels', 'applied_b', duels.filter(d => d.defender === me).map(d => d.id));
-    const gotG = await claim('gifts', 'seen', gifts.map(g => g.id));
-    duels = duels.filter(d => gotA.includes(d.id) || gotB.includes(d.id));
-    gifts = gifts.filter(g => gotG.includes(g.id));
+    // 창이 둘 열려 있어도 한 번만 뜨도록, '봤음' 표시를 먼저 차지한 것만 알린다
+    const got = await q(db.rpc('mark_seen', { p_oc: me, p_duels: duels.map(d => d.id), p_gifts: gifts.map(g => g.id) }));
+    duels = duels.filter(d => got.duels.includes(d.id));
+    gifts = gifts.filter(g => got.gifts.includes(g.id));
     if (!duels.length && !gifts.length) return;
     const r = await q(db.from('ocs').select('*').eq('id', o.id).maybeSingle());
     if (r) mergeOc(r);
     const pops = [];
     for (const d of duels) {
       const side = d.challenger === me ? 'a' : 'b', dl = d.result.delta[side];
-      o.fame += dl.fame || 0; o.insight += dl.insight || 0; o.w += dl.w || 0; o.l += dl.l || 0; o.d += dl.d || 0;
-      o.duelBuff = 0;
       const other = by(side === 'a' ? d.defender : d.challenger);
       pops.push({
         mark: '武', kicker: '비무 결과', title: !d.result.winner ? '무승부' : d.result.winner === me ? '승리' : '패배',
@@ -796,12 +783,11 @@
     }
     for (const g of gifts) {
       let arm = null, what;
-      if (g.kind === 'item') { o.bag[g.name] = (o.bag[g.name] || 0) + g.qty; what = `${g.name} ${g.qty}개`; }
-      else if (g.kind === 'arm') { arm = { uid: crypto.randomUUID(), ...g.arm }; o.arms.push(arm); what = `병기 「${arm.name}」`; }
-      else { o.silver += g.qty; what = `은자 ${fmt(g.qty)}`; }
+      if (g.kind === 'item') what = `${g.name} ${g.qty}개`;
+      else if (g.kind === 'arm') { arm = g.arm; what = `병기 「${arm.name}」`; }
+      else what = `은자 ${fmt(g.qty)}`;
       pops.push({ mark: '禮', kicker: `${g.from_name}의 선물`, title: what, story: g.msg, arm });
     }
-    await saveOc(o);
     pops.forEach(popup);
   }
 
@@ -839,17 +825,19 @@
   const av = o => h('div', { class: 'av' + (o?.npc ? ' npc' : '') }, o?.seal ? h('img', { src: o.seal, alt: '' }) : (o ? [...o.name][0] : '?'));
   const npcTag = o => o?.npc ? h('span', { class: 'tag npc' }, 'NPC') : null;
   const gradeTag = g => h('span', { class: 'tag g' + gradeIdx(g) }, g);
-  const pickW = list => { let r = Math.random() * list.reduce((s, x) => s + x.w, 0); return list.find(x => (r -= x.w) < 0) || list[list.length - 1]; };
   const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
-  // 버튼을 두 번 눌러 같은 일이 두 번 저장되지 않도록 한 번에 하나씩만 처리하고,
-  // 처리하기 전에 내 인물을 저장된 최신 상태로 맞춘다
+  // 버튼을 두 번 눌러 같은 일이 두 번 처리되지 않도록 한 번에 하나씩만 처리한다.
+  // 서버가 거절하면(다른 기기에서 이미 했거나 조건이 바뀐 경우) 알림을 띄우고 화면을 최신으로 맞춘다
   let busy = false;
   const act = fn => async (...a) => {
     if (busy) return;
     busy = true;
-    try { await syncMe(); await fn(...a); } catch (e) { console.error(e); } finally { busy = false; }
+    try { await fn(...a); } catch (e) {
+      console.error(e);
+      if (started && e?.code === 'P0001') { const r = await db.from('ocs').select('*').eq('id', me).maybeSingle(); if (r.data) mergeOc(r.data); render(); }
+    } finally { busy = false; }
   };
 
   // 객잔 글은 바로 화면에 보이고, 저장이 끝나면 id를 받아 둔다
@@ -911,7 +899,6 @@
     if (!mine().length) return createOc();
     const saved = lsGet('ghr-active');
     me = mine().some(o => o.id === saved) ? saved : (mine().find(o => !o.npc) || mine()[0]).id;
-    await dailyReset();
     await loadMine();
     $('#gate').replaceChildren(); $('.wrap').style.display = '';
     lastSync = Date.now();
@@ -922,11 +909,6 @@
       // 다른 탭이나 앱을 보다가 돌아오면 바로 한 번 새로 불러온다
       document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastSync > 30e3) refresh(true); });
     }
-  }
-  // 기력은 한국 시간 자정마다 다시 찬다
-  async function dailyReset() {
-    const day = todayKST();
-    for (const o of mine()) if (o.day !== day) { o.stamina = SET.stamina; o.day = day; await saveOc(o); }
   }
   function createOc() {
     const nm = h('input', { class: 'pick', placeholder: '이름 (20자까지)', maxlength: 20 });
@@ -1013,7 +995,7 @@
         h('div', {}, name(o), ' ', npcTag(o)), o.title ? h('div', { class: 'alias' }, `「${o.title}」`) : null,
         h('p', {}, `${realmFull(o.lv)} · ${o.weapon} · ${o.aff}`),
         o.equip ? h('p', {}, `패용 「${o.equip.name}」`) : null,
-        o.job ? h('p', {}, `${o.job} · 은자 ${fmt(o.silver)} · 기력 ${o.stamina}/${SET.stamina}`) : null,
+        o.job ? h('p', {}, `${o.job} · 은자 ${fmt(o.silver)} · 기력 ${staminaOf(o)}/${SET.stamina}`) : null,
         h('p', { class: 'st' }, o.retreat_until ? (o.retreat_until > Date.now() ? ['폐관 중 · ', h('span', { 'data-until': o.retreat_until })] : '출관 대기') : '강호 활동 중'),
         pick),
       h('div', { class: 'blk' }, h('h3', {}, '공지'),
@@ -1144,28 +1126,17 @@
     else bt = h('div', { class: 'bt' },
       h('div', {}, h('b', {}, `벽 너머 · ${REALMS[r + 1]}`), h('p', {}, `성공률 ${rate}%` + (o.breakBonus ? ` (보너스 +${o.breakBonus})` : '') + `입니다. 실패하면 ${energy(o.lv)}의 ${SET.failLoss}%를 잃습니다.`)),
       h('button', { class: 'btn fill', disabled: o.qi < need, onclick: act(async () => {
-        // 다른 기기에서 이미 돌파했거나 내공을 썼을 수 있으니 최신 값으로 다시 확인한다
-        if (o.lv !== r * 3 + 3 || o.qi < needQi(o.lv)) { render(); return toast('상태가 바뀌었습니다. 다시 확인해 주세요'); }
-        const rate = (BREAK_RATE[r] ?? 0) + (o.breakBonus || 0), need = needQi(o.lv);
-        o.breakBonus = 0;
-        if (Math.random() * 100 < rate) {
-          o.qi -= need; o.lv++;
-          newPost('game', me, `${o.name} — 벽을 넘어 ${realm(o.lv)}에 올랐다.`);
-          popup({ mark: '破', kicker: '경지 돌파', title: realm(o.lv), story: '벽을 넘었습니다.' });
-        } else {
-          o.qi = Math.round(o.qi * (1 - SET.failLoss / 100));
-          newPost('game', me, `${o.name} — ${REALMS[r + 1]}의 벽에 부딪혀 물러났다.`);
-          toast('벽을 넘지 못했습니다');
-        }
-        await saveOc(o); render();
+        const res = await play('break_through');
+        if (res.ok) popup({ mark: '破', kicker: '경지 돌파', title: realm(r * 3 + 4), story: '벽을 넘었습니다.' });
+        else toast('벽을 넘지 못했습니다');
+        risen(res); render();
       }) }, '돌파 시도'));
 
     let body;
     if (!o.retreat_until) {
       body = h('div', { class: 'opts', style: `--n:${RETREATS.length}` }, RETREATS.map(x => h('button', { class: 'opt', onclick: act(async () => {
-        if (o.retreat_until) { render(); return toast('이미 폐관 중입니다'); }
-        o.retreat_hours = x.h; o.retreat_until = Date.now() + x.h * 3600e3;
-        await saveOc(o); toast(x.h + '시간 폐관에 들었습니다'); render();
+        const res = await play('retreat_start', { p_hours: x.h });
+        toast(x.h + '시간 폐관에 들었습니다'); risen(res); render();
       }) }, h('b', {}, x.h + '시간'), h('span', {}, `${energy(o.lv)} 약 +${fmt(gainQi(x.h, o.lv) * (1 + (o.retreatBuff || 0) / 100))}`), h('small', {}, `기연 ${x.luck}% · 주화입마 ${x.dev}%`))));
     } else {
       body = h('div', { class: 'count' }, h('div', { class: 'mut', style: 'font-size:13px' }, o.retreat_hours + '시간 폐관 중'),
@@ -1204,25 +1175,17 @@
         done ? h('div', {}, h('b', {}, P.stages[P.stages.length - 1] || '—'), h('p', {}, '무공의 끝에 이르렀습니다.'))
           : h('div', {}, h('b', {}, `다음 · ${P.stages[st]}`), h('p', {}, `깨달음 ${fmt(PATH_NEED[st])}, 경지 ${REALMS[PATH_REALM[st]]} 이상이 필요합니다. 깨우치면 비무 판정에 ${SET.pathBonus}점이 더해집니다.`)),
         done ? null : h('button', { class: 'btn fill', disabled: !ok, onclick: act(async () => {
-          if ((o.path || 0) !== st || o.insight < PATH_NEED[st]) { render(); return toast('상태가 바뀌었습니다. 다시 확인해 주세요'); }
-          o.insight -= PATH_NEED[st]; o.path = st + 1;
-          newPost('game', me, `${o.name} — ${P.stages[st]}의 경지를 깨우쳤다.`);
-          await saveOc(o);
-          popup({ mark: '悟', kicker: `무공 경지 · ${P.name}`, title: P.stages[st], story: '새로운 경지를 깨우쳤습니다.' });
-          render();
+          const res = await play('path_up');
+          popup({ mark: '悟', kicker: `무공 경지 · ${P.name}`, title: P.stages[res.stage], story: '새로운 경지를 깨우쳤습니다.' });
+          risen(res); render();
         }) }, '깨우치기')),
       h('p', { class: 'note' }, '깨달음은 비무(승 12 · 무 10 · 패 8), 기연, 폐관(시간당 1), 서생의 필사로 얻을 수 있습니다.'));
   }
   async function claim(o) {
     if (!o.retreat_until || o.retreat_until > Date.now()) return toast('아직 폐관이 끝나지 않았습니다');
-    const hrs = o.retreat_hours, R = RETREATS.find(x => x.h === hrs) || RETREATS[0], roll = Math.random() * 100;
-    let g = Math.round(gainQi(hrs, o.lv) * (1 + (o.retreatBuff || 0) / 100)), msg = '';
-    o.retreatBuff = 0;
-    if (roll < R.dev) { g = Math.round(g / 2); msg = ' · 주화입마에 빠질 뻔했습니다'; newPost('game', me, `${o.name} — 폐관 중 주화입마에 빠질 뻔했다.`); }
-    else if (roll >= 100 - R.luck) msg = ' · ' + fortune(o, '폐관', hrs);
-    o.qi += g; o.hours += hrs; o.insight = (o.insight || 0) + hrs; o.retreat_hours = null; o.retreat_until = null;
-    await saveOc(o);
-    toast(`출관 · ${energy(o.lv)} +${fmt(g)}${msg}`); render();
+    const lv = o.lv, res = await play('retreat_end');
+    const msg = res.dev ? ' · 주화입마에 빠질 뻔했습니다' : fortuneMsg(res.fortune, lv);
+    toast(`출관 · ${energy(lv)} +${fmt(res.gain)}${msg}`); risen(res); render();
   }
 
   // ── 기연과 병기 ─────────────────────────────
@@ -1236,39 +1199,17 @@
     if (f.drop) p.push('병기 확정 (' + grades.map((g, i) => f.drop[i] ? `${g.name} ${f.drop[i]}%` : null).filter(Boolean).join(' · ') + ')');
     return p.join(', ') || '효과 없음';
   }
-  // 기연을 굴려 인물에 적용하고 팝업으로 알린다. 저장은 부른 쪽에서 한다
-  function fortune(o, where, hrs = 4) {
-    o.insight = o.insight || 0;
-    const pool = FORTUNES.filter(x => x.where.includes(where) && (!x.min || hrs >= x.min));
-    if (!pool.length) return '';
-    const f = pickW(pool), lines = [];
-    newPost('game', o.id, `${o.name} — ${f.post}`);
-    if (f.qiHours) { const g = gainQi(f.qiHours, o.lv); o.qi += g; lines.push([energy(o.lv), `+${fmt(g)}`]); }
-    const st = o.path || 0;
-    if (f.path && st < PATH_NEED.length && rIdx(o.lv) >= PATH_REALM[st]) { o.path = st + 1; lines.push(['무공 경지', pathOf(o.weapon).stages[st] + ' 깨우침']); }
-    else if (f.insight) { o.insight += f.insight; lines.push(['깨달음', `+${f.insight}`]); }
-    if (f.fame) { o.fame += f.fame; lines.push(['명성', `+${f.fame}`]); }
-    if (f.breakBonus) { o.breakBonus = (o.breakBonus || 0) + f.breakBonus; lines.push(['다음 돌파 성공률', `+${f.breakBonus}%`]); }
-    const arm = f.drop ? dropArm(o, f.drop) : Math.random() * 100 < SET.armExtra ? dropArm(o) : null;
-    popup({ mark: '奇緣', kicker: `${where}에서 얻은 기연`, title: f.name, story: f.post, lines, arm });
-    return `기연 · ${f.name}`;
-  }
-  // 정해진 비율로 내 무기 종류, 나머지는 다른 종류(선물·거래용). 한 자루뿐인 등급은 주인이 있으면 한 단계 아래로
-  function dropArm(o, odds = GRADES.map(g => g.odds)) {
-    const types = Object.keys(WEAPONS);
-    const type = Math.random() * 100 < SET.armOwnType ? o.weapon : types[Math.floor(Math.random() * types.length)];
-    const taken = n => ocs.some(x => x.arms.some(a => a.name === n));
-    let gi = pickW(GRADES.map((g, i) => ({ i, w: odds[i] || 0 }))).i, pool = [];
-    for (; gi >= 0; gi--) {
-      pool = ARMS_LIST.filter(a => a.type === type && a.grade === GRADES[gi].name && !(GRADES[gi].unique && taken(a.name)));
-      if (pool.length) break;
-    }
-    if (!pool.length) return null;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    const a = { uid: crypto.randomUUID(), name: pick.name, type, grade: pick.grade };
-    o.arms.push(a);
-    if (gi > 0) newPost('game', o.id, `${a.grade} 「${a.name}」 출세 — ${o.name}의 손에 들어갔다.`);
-    return a;
+  // 서버가 굴린 기연을 팝업으로 알리고, 알림 문구 끝에 붙일 말을 돌려준다. lv는 기연이 일어날 때의 경지
+  function fortuneMsg(f, lv) {
+    if (!f) return '';
+    const o = by(me), lines = [];
+    if (f.qi) lines.push([energy(lv), `+${fmt(f.qi)}`]);
+    if (f.path != null) lines.push(['무공 경지', pathOf(o.weapon).stages[f.path] + ' 깨우침']);
+    if (f.insight) lines.push(['깨달음', `+${f.insight}`]);
+    if (f.fame) lines.push(['명성', `+${f.fame}`]);
+    if (f.breakBonus) lines.push(['다음 돌파 성공률', `+${f.breakBonus}%`]);
+    popup({ mark: '奇緣', kicker: `${f.where}에서 얻은 기연`, title: f.name, story: f.post, lines, arm: f.arm });
+    return ` · 기연 · ${f.name}`;
   }
   function armCard(a) {
     const fit = a.type === by(me)?.weapon, g = GRADES[gradeIdx(a.grade)];
@@ -1535,36 +1476,24 @@
           Object.entries(f).forEach(([k, el]) => o[k] = el.value.trim());
           o.aff = o.aff || '무소속';
           o.seal = draft.seal || null; o.ties = draft.ties.filter(t => t.oc && t.rel.trim());
-          await saveOc(o);
+          // 플레이어가 직접 고칠 수 있는 것은 프로필뿐이다
+          await q(db.from('ocs').update({ profile: pickKeys(o, PROFILE_KEYS) }).eq('id', o.id));
           toast('프로필을 저장했습니다'); close();
         }) }, '저장'),
         h('button', { class: 'btn ghost', onclick: close }, '취소'))];
   }
 
   // ── 생활 ────────────────────────────────────
-  const BIAS = { 의원: '약초', 대장장이: '철광석', 숙수: '식재료', 서생: '먹' };
-  const gainText = g => Object.entries(g).filter(([, v]) => v).map(([k, v]) => `${GAIN_LABEL[k]} +${v}`).join(' · ') || '없음';
-  const applyGain = (o, g) => { o.silver += g.silver || 0; o.fame += g.fame || 0; o.insight = (o.insight || 0) + (g.insight || 0); };
-  const addItem = (o, k, n = 1) => { o.bag[k] = (o.bag[k] || 0) + n; };
+  const gainText = g => Object.entries(g || {}).filter(([, v]) => v).map(([k, v]) => `${GAIN_LABEL[k]} +${v}`).join(' · ') || '없음';
   const mastery = xp => MASTERY_XP.filter(t => xp >= t).length - 1;
   const itemOf = k => ITEMS[k] || ['', 0];
-  function spend(o) {
-    if (o.stamina <= 0) { toast('오늘 기력을 다 썼습니다. 자정에 다시 찹니다'); return false; }
-    o.stamina--; o.jobXp++; return true;
-  }
-  // 선물: 내 것을 덜어 저장하고, 받는 사람 몫은 gifts에 남긴다
-  async function giveFrom(o, to, kind, payload, text) {
-    await saveOc(o);
-    await q(db.from('gifts').insert({ from_oc: o.id, from_name: o.name, to_oc: to, kind, ...payload }));
-    await q(db.from('letters').insert({ from_oc: o.id, to_oc: to, body: `[선물] ${text}` }));
-    toast(`선물을 보냈습니다 · ${by(to).name}에게 ${text}`);
-  }
+  const tired = o => { if (staminaOf(o) > 0) return false; toast('오늘 기력을 다 썼습니다. 자정에 다시 찹니다'); return true; };
   function pLife() {
     const o = by(me);
     if (!o.job || !JOBS[o.job]) return [ph('생활'),
       sec('생업 고르기', '강호에서 먹고살 일을 하나 고릅니다. 생업은 한 달에 한 번 바꿀 수 있습니다.',
         h('div', { class: 'opts jobs', style: '--n:3' }, Object.entries(JOBS).map(([k, J]) => h('button', { class: 'opt', onclick: act(async () => {
-          o.job = k; o.jobXp = 0; await saveOc(o); toast(k + '의 길을 걷습니다'); render();
+          await play('life_job', { p_job: k }); toast(k + '의 길을 걷습니다'); render();
         }) },
           h('b', {}, `${J.hj} ${k}`), h('span', {}, `${J.work} · ${gainText(J.gain)}`),
           h('small', {}, Object.keys(J.craft).length ? Object.keys(J.craft).join(', ') + ' 제작' : k === '상인' ? '물건을 두 배 값에 팝니다' : '연주가 객잔에 알려집니다')))))];
@@ -1578,28 +1507,23 @@
         h('div', { class: 'under' }, h('span', {}, next ? `다음 · ${MASTERY[m + 1]}` : '최고 숙련'), h('span', {}, next ? `${o.jobXp} / ${next}` : ''))),
       h('div', { class: 'job-side' },
         h('div', {}, h('small', {}, '은자'), h('b', {}, fmt(o.silver))),
-        h('div', {}, h('small', {}, '기력'), h('span', { class: 'stam' }, Array.from({ length: SET.stamina }, (_, i) => h('i', { class: i < o.stamina ? 'f' : '' }))))));
+        h('div', {}, h('small', {}, '기력'), h('span', { class: 'stam' }, Array.from({ length: SET.stamina }, (_, i) => h('i', { class: i < staminaOf(o) ? 'f' : '' }))))));
 
     const acts = h('div', { class: 'opts' },
       h('button', { class: 'opt', onclick: act(async () => {
-        if (!spend(o)) return;
-        const got = [0, 1].map(() => BIAS[o.job] && Math.random() < .6 ? BIAS[o.job] : Object.values(BIAS)[Math.floor(Math.random() * 4)]);
-        got.forEach(k => addItem(o, k));
-        const f = Math.random() * 100 < SET.rateGather ? ' · ' + fortune(o, '채집') : '';
-        await saveOc(o); toast('채집 · ' + got.join(', ') + f); render();
+        if (tired(o)) return;
+        const lv = o.lv, res = await play('life_do', { p_kind: 'gather' });
+        toast('채집 · ' + res.got.join(', ') + fortuneMsg(res.fortune, lv)); risen(res); render();
       }) }, h('b', {}, '채집'), h('span', {}, '산과 강에서 재료를 모읍니다'), h('small', {}, '기력 1 · 재료 2개')),
       h('button', { class: 'opt', onclick: act(async () => {
-        if (!spend(o)) return;
-        applyGain(o, J.gain);
-        if (o.job === '악사') newPost('game', me, `${o.name} — 저잣거리에서 한 곡을 탔다. 걸음을 멈춘 이가 많았다.`);
-        await saveOc(o); toast(`${J.work} · ${gainText(J.gain)}`); render();
+        if (tired(o)) return;
+        const res = await play('life_do', { p_kind: 'work' });
+        toast(`${J.work} · ${gainText(res.gain)}`); risen(res); render();
       }) }, h('b', {}, J.work), h('span', {}, '생업으로 하루 벌이를 합니다'), h('small', {}, `기력 1 · ${gainText(J.gain)}`)),
       h('button', { class: 'opt', onclick: act(async () => {
-        if (!spend(o) || !ERRANDS.length) return;
-        const [t, g] = ERRANDS[Math.floor(Math.random() * ERRANDS.length)];
-        applyGain(o, g); newPost('game', me, `객잔 의뢰 — ${o.name}, ${t}.`);
-        const f = Math.random() * 100 < SET.rateErrand ? ' · ' + fortune(o, '객잔 의뢰') : '';
-        await saveOc(o); toast(`의뢰 완료 · ${gainText(g)}${f}`); render();
+        if (tired(o)) return;
+        const lv = o.lv, res = await play('life_do', { p_kind: 'errand' });
+        toast(`의뢰 완료 · ${gainText(res.gain)}${fortuneMsg(res.fortune, lv)}`); risen(res); render();
       }) }, h('b', {}, '객잔 의뢰'), h('span', {}, '강호인의 소소한 부탁을 들어줍니다'), h('small', {}, '기력 1 · 객잔에 기록됩니다')));
 
     const recipes = Object.entries(J.craft);
@@ -1609,40 +1533,34 @@
         const ok = Object.entries(mats).every(([k, n]) => (o.bag[k] || 0) >= n);
         return h('tr', {}, h('td', { class: 'w' }, item), h('td', {}, Object.entries(mats).map(([k, n]) => `${k} ${n}`).join(' · ')), h('td', { class: 'mut' }, itemOf(item)[0]),
           h('td', {}, h('button', { class: 'link', disabled: !ok, onclick: act(async () => {
-            if (!Object.entries(mats).every(([k, n]) => (o.bag[k] || 0) >= n)) { render(); return toast('재료가 모자랍니다'); }
-            if (!spend(o)) return;
-            Object.entries(mats).forEach(([k, n]) => o.bag[k] -= n); addItem(o, item);
-            await saveOc(o); toast(item + ' 완성'); render();
+            if (tired(o)) return;
+            const res = await play('life_craft', { p_item: item }); toast(item + ' 완성'); risen(res); render();
           }) }, ok ? '만들기' : '재료 부족')));
       }))))
       : h('p', { class: 'note', style: 'margin-top:0' }, o.job === '상인' ? '상인은 물건을 만들지 않는 대신, 보따리의 물건을 두 배 값에 팝니다.' : '이 생업은 만드는 물건이 없습니다.');
 
     const items = Object.entries(o.bag).filter(([, n]) => n > 0);
-    // 다른 기기에서 이미 써 버렸을 수 있으니 누르는 순간 다시 확인한다
-    const has = k => { if ((o.bag[k] || 0) > 0) return true; toast('보따리에 남아 있지 않습니다'); render(); return false; };
     const price = k => itemOf(k)[1] * (o.job === '상인' ? 2 : 1);
     const giftSel = onPick => h('select', { class: 'pick', style: 'min-width:0;width:auto;font-size:13px;padding:0', onchange: act(async e => { const v = e.target.value; e.target.value = ''; if (v) await onPick(v); }) },
       h('option', { value: '' }, '선물'), ocs.filter(x => x.id !== o.id).map(x => h('option', { value: x.id }, x.name)));
-    const USE = {
-      소환단: () => { o.breakBonus = (o.breakBonus || 0) + 10; return '다음 돌파 성공률 +10%'; },
-      '정비한 무기': () => { o.duelBuff = 0.25; return '다음 비무 판정 +0.25'; },
-      보양식: () => { o.retreatBuff = 20; return '다음 폐관 내공 +20%'; },
-      '비급 필사본': () => { o.insight += 30; return '깨달음 +30'; },
+    // 선물은 서버가 내 것에서 덜어 받는 사람에게 바로 넣는다
+    const give = async (fn, args, to, text) => {
+      await play(fn, { p_to: to, ...args });
+      toast(`선물을 보냈습니다 · ${by(to).name}에게 ${text}`); render();
     };
+    const USE = { 소환단: '다음 돌파 성공률 +10%', '정비한 무기': '다음 비무 판정 +0.25', 보양식: '다음 폐관 내공 +20%', '비급 필사본': '깨달음 +30' };
     const bag = items.length ? h('div', { class: 'tbl' }, h('table', {},
       h('thead', {}, h('tr', {}, ['물품', '수', '설명', ''].map(t => h('th', {}, t)))),
       h('tbody', {}, items.map(([k, n]) => h('tr', {},
         h('td', { class: 'w' }, k), h('td', {}, n), h('td', { class: 'mut' }, itemOf(k)[0]),
         h('td', {}, h('span', { class: 'row', style: 'flex-wrap:nowrap;gap:14px' },
           USE[k] ? h('button', { class: 'link', onclick: act(async () => {
-            if (!has(k)) return;
-            o.bag[k]--; const t = USE[k](); await saveOc(o); toast(`${k} 사용 · ${t}`); render();
+            const res = await play('item_use', { p_item: k }); toast(`${k} 사용 · ${USE[k]}`); risen(res); render();
           }) }, '쓰기') : null,
           h('button', { class: 'link', onclick: act(async () => {
-            if (!has(k)) return;
-            o.bag[k]--; o.silver += price(k); await saveOc(o); toast(`${k} 팔기 · 은자 +${price(k)}`); render();
+            const res = await play('item_sell', { p_item: k }); toast(`${k} 팔기 · 은자 +${res.price}`); render();
           }) }, `팔기 ${price(k)}`),
-          giftSel(async to => { if (!has(k)) return; o.bag[k]--; await giveFrom(o, to, 'item', { name: k, qty: 1 }, `${k} 하나`); render(); }))))))))
+          giftSel(to => give('give_item', { p_item: k }, to, `${k} 하나`)))))))))
       : h('p', { class: 'mut', style: 'font-size:13px' }, '보따리가 비어 있습니다.');
 
     const armsTbl = o.arms.length ? h('div', { class: 'tbl' }, h('table', {},
@@ -1652,25 +1570,17 @@
         return h('tr', {}, h('td', { class: 'w' }, `「${a.name}」`), h('td', {}, gradeTag(a.grade)), h('td', {}, a.type),
           h('td', { class: 'mut' }, loreOf(a.name), h('div', { style: 'color:var(--ink);margin-top:2px' }, fit ? `비무 판정 +${GRADES[gi]?.bonus ?? 0}` : '내 무기와 종류가 다릅니다')),
           h('td', {}, h('span', { class: 'row', style: 'flex-wrap:nowrap;gap:14px' },
-            // 행동 직전에 인물을 다시 읽어 오므로 병기는 객체가 아니라 uid로 찾는다
             fit ? (o.equip?.uid === a.uid ? h('span', { style: 'font-size:13px' }, '패용 중') : h('button', { class: 'link', onclick: act(async () => {
-              const mineArm = o.arms.find(x => x.uid === a.uid);
-              if (!mineArm) return toast('이미 없는 병기입니다');
-              o.equip = mineArm; await saveOc(o); toast(`「${a.name}」 패용`); render();
+              await play('equip_arm', { p_uid: a.uid }); toast(`「${a.name}」 패용`); render();
             }) }, '패용')) : null,
-            giftSel(async to => {
-              if (!o.arms.some(x => x.uid === a.uid)) return toast('이미 없는 병기입니다');
-              o.arms = o.arms.filter(x => x.uid !== a.uid); if (o.equip?.uid === a.uid) o.equip = null;
-              await giveFrom(o, to, 'arm', { name: a.name, arm: { name: a.name, type: a.type, grade: a.grade } }, `병기 「${a.name}」`);
-              render();
-            }))));
+            giftSel(to => give('give_arm', { p_uid: a.uid }, to, `병기 「${a.name}」`)))));
       }))))
       : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 이름 붙은 병기가 없습니다. 기연에서 얻을 수 있습니다.');
 
     return [ph('생활'), head,
       sec('오늘 할 일', `하루 기력은 ${SET.stamina}입니다. 매일 자정에 다시 찹니다. 일 하나에 기력 1이 듭니다.`, acts),
       sec('제작', `${o.job}의 솜씨로 물건을 만듭니다. 한 번 만들 때 기력 1이 듭니다.`, craft),
-      sec('보따리', '물건을 쓰거나 팔 수 있습니다. 선물은 서신과 함께 전서구로 보내집니다.', bag),
+      sec('보따리', '물건을 쓰거나 팔 수 있습니다. 선물은 바로 상대에게 들어가고, 알리는 서신이 전서구로 따로 갑니다.', bag),
       sec('병기', '패용한 병기 하나만 비무에 쓰입니다. 내 무기와 종류가 다른 병기는 선물할 수 있습니다.', armsTbl),
       h('p', { class: 'note', style: 'margin-top:28px' }, '생업은 한 달에 한 번 바꿀 수 있습니다.')];
   }
