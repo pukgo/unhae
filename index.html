@@ -56,12 +56,14 @@
   .ticker .cnt { flex-shrink: 0; margin-left: 16px; opacity: .5; font-size: 12px; font-variant-numeric: tabular-nums; }
   .wrap {
     max-width: 1340px; margin: 0 auto; padding: 20px 24px 28px; display: grid; gap: 18px; align-items: start;
-    grid-template-columns: 228px minmax(0, 1fr) 292px; grid-template-areas: 'me center here' 'log log log';
+    grid-template-columns: 228px minmax(0, 1fr) 292px; grid-template-rows: auto 1fr;
+    /* 양옆 칸은 화면을 따라 내려오므로(sticky) 두 줄 모두 차지하게 하고, 기록은 가운데 칸 아래에만 둔다. 그래야 따라 내려온 칸이 기록을 덮지 않는다 */
+    grid-template-areas: 'me center here' 'me log here';
   }
   .pane { background: var(--card); border: 1px solid var(--ink); box-shadow: 0 0 0 3px var(--card), 0 0 0 4px var(--ink); min-width: 0; }
   .pane > .hd { background: var(--ink); color: var(--paper); text-align: center; font-family: var(--head); font-size: 12px; letter-spacing: .3em; padding: 3px 0; }
   .pane > .bd { padding: 16px 18px; }
-  #mecol { grid-area: me; position: sticky; top: 58px; }
+  #mecol { grid-area: me; position: sticky; top: 58px; max-height: calc(100vh - 78px); overflow: auto; }
   #center { grid-area: center; }
   #aside { grid-area: here; position: sticky; top: 58px; max-height: calc(100vh - 78px); overflow: auto; }
   #log { grid-area: log; }
@@ -451,7 +453,7 @@
   @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
   @media (max-width: 1180px) {
-    .wrap { grid-template-columns: minmax(0, 1fr) 276px; grid-template-areas: 'center here' 'center me' 'log log'; }
+    .wrap { grid-template-columns: minmax(0, 1fr) 276px; grid-template-rows: none; grid-template-areas: 'center here' 'center me' 'log log'; }
     #aside, #mecol { position: static; max-height: none; }
   }
   @media (max-width: 760px) {
@@ -459,7 +461,7 @@
     .deco .bl { display: none; }
     .ticker { padding: 0 12px; font-size: 12px; }
     .ticker .cnt { display: none; }
-    .wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'me' 'center'; padding: 0 0 72px; gap: 0; }
+    .wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: 'me' 'center'; padding: 0 0 72px; gap: 0; }
     .pane { box-shadow: none; border-left: none; border-right: none; }
     #aside, #log, .m-hide { display: none !important; }
     #mecol > .hd { display: none; }
