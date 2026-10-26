@@ -425,6 +425,10 @@
     background: var(--ink); color: var(--paper); padding: 10px 18px; font-size: 13px; transition: opacity .2s, transform .2s; z-index: 40; max-width: 90vw;
   }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
+  .reload-bar { position: fixed; left: 50%; top: 46px; transform: translateX(-50%); z-index: 35; display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 32px);
+    padding: 10px 12px 10px 18px; background: var(--ink); color: var(--paper); font-size: 13px; box-shadow: 0 0 0 3px var(--paper), 0 0 0 4px var(--ink); }
+  .reload-bar .btn { padding: 4px 12px; font-size: 12px; flex-shrink: 0; color: var(--ink); border-color: var(--paper); }
+  .reload-bar .btn:hover { background: var(--paper); color: var(--ink); }
 
   /* 팝업 */
   .modal-bg { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(21, 21, 21, .45); animation: fade .2s; }
@@ -982,6 +986,7 @@
     if (full || st?.updated_at !== settingsAt) {
       const s = await q(db.from('settings').select('data, updated_at').eq('id', 1).maybeSingle());
       settingsAt = s?.updated_at; settingsFound = applySettings(s?.data);
+      checkReload(s?.data);
     }
     // 인물: 전체를 받을 때는 사라진 인물도 정리한다
     let oq = db.from('ocs').select(full ? '*' : OC_LIGHT).order('updated_at');
@@ -1220,6 +1225,36 @@
     return p;
   }
 
+  // ── 모두 새로고침 ───────────────────────────
+  // 운영자가 누르면 settings.data.RELOAD에 그 시각을 적는다. 접속한 화면은 30초마다 설정의 저장 시각을 보다가,
+  // 화면을 열 때 본 값과 달라지면 알림 띠를 띄우고 새로고침한다. 글을 쓰거나 팝업이 떠 있으면 끝날 때까지(최대 5분) 기다린다.
+  // GitHub Pages가 index.html을 몇 분 동안 캐시하므로, 주소 끝에 ?r=시각을 붙여 새 파일을 받는다
+  let reloadSeen;   // 이 화면을 열 때 본 값. 처음 받을 때 정한다
+  function checkReload(data) {
+    const v = data?.RELOAD || null;
+    if (reloadSeen === undefined) { reloadSeen = v; return; }
+    if (v && v !== reloadSeen) { reloadSeen = v; if (started) askReload(); }
+  }
+  function askReload() {
+    if ($('#reload-bar')) return;
+    const t0 = Date.now(), txt = h('span');
+    const go = () => location.replace(location.pathname + '?r=' + Date.now() + location.hash);
+    document.body.append(h('div', { id: 'reload-bar', class: 'reload-bar', role: 'status' }, txt, h('button', { class: 'btn', onclick: go }, '지금 새로고침')));
+    let left = 15;
+    const tick = () => {
+      if (typing() && Date.now() - t0 < 5 * 60e3) txt.textContent = '새 판이 올라왔습니다. 쓰던 글을 다 올리면 새로고침합니다.';
+      else { txt.textContent = `새 판이 올라왔습니다. ${left}초 뒤 새로고침합니다.`; if (left-- <= 0) return go(); }
+      setTimeout(tick, 1000);
+    };
+    tick();
+  }
+  async function reloadAll() {
+    if (!(await ask('모두 새로고침', '지금 접속한 모든 사람의 화면이 30초 안에 새로고침됩니다. 글을 쓰던 사람은 다 올린 뒤에 새로고침됩니다. 화면을 새로 올리고 Pages 빌드가 끝난 뒤에 눌러 주세요.', '새로고침'))) return;
+    const at = new Date().toISOString();
+    await q(db.from('settings').update({ data: { ...structuredClone(CFG), RELOAD: at }, updated_at: at }).eq('id', 1));
+    reloadSeen = at; toast('접속한 사람들에게 새로고침을 알렸습니다'); render();
+  }
+
   // ════════════════════════════════════════════
   // 시작
   // ════════════════════════════════════════════
@@ -1228,6 +1263,7 @@
     $('#gate').replaceChildren(h('div', { class: 'gate' }, h('div', { class: 'gate-box' }, h('div', { class: 'mk' }, '江湖'), h('h1', {}, title), kids)));
   }
   async function boot() {
+    if (/[?&]r=\d/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return gate('연결 설정이 필요합니다', h('p', { class: 'mut' }, 'index.html 위쪽의 SUPABASE_URL과 SUPABASE_ANON_KEY를 채워 주세요.'));
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data: { session } } = await db.auth.getSession();
@@ -2482,6 +2518,10 @@
   function adminEvent() {
     const ta = h('textarea', { class: 'field', placeholder: '공지 또는 시대 사건 (객잔과 오른쪽 공지란에 올라갑니다)', maxlength: 500 });
     return [
+      h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, '모두 새로고침'),
+        h('p', { class: 'desc' }, '화면을 새로 올린 뒤 누르면, 지금 접속한 사람들의 화면이 30초 안에 새 판으로 바뀝니다. 글을 쓰던 사람은 다 올린 뒤에 바뀝니다.'),
+        h('div', { class: 'row' }, h('button', { class: 'btn fill', onclick: act(reloadAll) }, '모두 새로고침'),
+          reloadSeen ? h('span', { class: 'mut', style: 'font-size:12px' }, `마지막 요청 · ${ago(reloadSeen)}`) : null)),
       h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, '경지의 문'),
         h('p', { class: 'desc' }, '문을 열면 시대 사건 공지가 함께 올라갑니다.'),
         TIERS.filter(t => t.gate).map(t => h('div', { class: 'bt', style: 'margin-top:10px' },
