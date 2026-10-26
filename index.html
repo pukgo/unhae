@@ -594,6 +594,7 @@
     restGain: 20, restFee: 5, restCool: 60, secSearch: 30, secMeditate: 60, secRest: 300, meditateHours: 0.1,
     stBank: 200, bulkRare: 0.5, bulkFortune: 0.5, bulkQi: 0.7,   // 비축 상한, 몰아서 하기의 특산·기연·내공 비율
     boomRate: 1.5, sameDuelFame: 1.5, rumorGap: 10,
+    duelDaily: 3, duelPending: 3, duelGap: 10,   // 같은 두 사람의 하루 비무 보상 횟수, 대기 중 도전장 수, 거절 · 철회 뒤 다시 도전까지(분)
   };
   const RETREATS = [{ h: 1, luck: 10, dev: 3 }, { h: 4, luck: 15, dev: 8 }, { h: 12, luck: 22, dev: 15 }];
   const WEAPONS = {
@@ -1067,7 +1068,7 @@
       loadLetters(full),
       q(db.from('duels').select('id, challenger, defender, created_at').eq('defender', me).eq('status', 'pending').order('created_at')),
       q(db.from('duels').select('id, challenger, defender, created_at').eq('challenger', me).eq('status', 'pending').order('created_at')),
-      wantResults ? q(db.from('duels').select('challenger, defender, result, resolved_at').eq('status', 'done').order('resolved_at', { ascending: false }).limit(20)) : null,
+      wantResults ? q(db.rpc('duel_recent')) : null,
       q(db.from('duels').select('*').eq('status', 'done').or(`and(challenger.eq.${me},applied_a.eq.false),and(defender.eq.${me},applied_b.eq.false)`)),
       q(db.from('gifts').select('*').eq('to_oc', me).eq('seen', false).order('created_at')),
     ]);
@@ -1083,8 +1084,9 @@
     duelsIn = dIn.map(d => ({ id: d.id, from: d.challenger, t: d.created_at }));
     duelsOut = dOut.map(d => ({ id: d.id, to: d.defender, t: d.created_at }));
     if (done) resultsAt = Date.now();
-    if (done) results = done.filter(d => d.result).map(d => ({ a: d.challenger, b: d.defender, r: (d.result.rounds || []).map(x => x.r), win: d.result.winner, t: d.resolved_at,
-      f: d.result.fight || null, st: d.result.stance || {}, same: d.result.same }));
+    // 목록에는 승패 · 합 수 · 자세만 온다. 대결 기록은 누를 때 그 한 판만 받는다 (fightLog)
+    if (done) results = done.map(d => ({ id: d.id, a: d.a, b: d.b, win: d.win, t: d.t, r: (d.old || []).map(x => x.r),
+      f: d.rounds ? { rounds: d.rounds, ko: d.ko } : null, st: d.stance || {}, paid: d.rewarded !== false }));
     await applyPending(pend, gifts);
     // 기록·인사는 10초마다 가볍게 받기가 맡는다. 처음이거나 인물·장소가 바뀌었을 때만 여기서 받는다
     if (full || `${me}|${hereOf(by(me))}` !== logKey) await loadPlace(full);
@@ -1121,7 +1123,7 @@
     greetsIn.forEach(g => {
       if (toasted.has(g.id)) return;
       toasted.add(g.id);
-      if (started && now - Date.parse(g.created_at) < 60e3) toast(`${by(g.from_oc)?.name || '누군가'}의 인사 · ${GREETS.find(x => x[0] === g.kind)?.[1] || g.kind}`);
+      if (started && now - Date.parse(g.created_at) < 60e3) toast(g.reply_to ? `${by(g.from_oc)?.name || '누군가'}의 답례 · ${greetWord(g.kind)}` : `${by(g.from_oc)?.name || '누군가'}의 인사 · ${GREETS.find(x => x[0] === g.kind)?.[1] || g.kind}`);
     });
     if (bs) { bonds = new Map(bs.map(b => [b.a === me ? b.b : b.a, b.score])); bondsAt = now; }
   }
@@ -1240,6 +1242,7 @@
     [/Email not confirmed/i, '메일 확인이 아직 끝나지 않았습니다. 받은 메일의 링크를 눌러 주세요.'],
     [/rate limit|too many requests|For security purposes/i, '잠시 뒤에 다시 시도해 주세요.'],
     [/missing email|missing password|anonymous/i, '이메일과 비밀번호를 모두 적어 주세요.'],
+    [/signups? (are )?not allowed|signup(s)? (is |are )?disabled/i, '지금은 새로 가입할 수 없습니다. 운영자에게 문의해 주세요.'],
     [/fetch|network/i, '인터넷 연결을 확인해 주세요.'],
   ];
   function showAuth() {
@@ -1553,12 +1556,18 @@
       h('button', { class: 'chip', onclick: () => go('duel', x.id) }, '비무')),
       greetOpen === x.id ? h('div', { class: 'gmenu' }, GREETS.map(([k, l]) => h('button', { onclick: act(() => greet(x.id, k)) }, l))) : null];
   }
+  // 받은 인사에는 한 번 답례할 수 있다. 답례로 온 인사(reply_to)에는 답례 버튼이 없다 (답례가 끝없이 오가지 않게)
+  const greetWord = kind => ({ 포권: '포권', 술: '술잔', 길: '물음', 눈: '눈인사' }[kind] || kind);
+  async function greetBack(g) {
+    const r = await play('greet_back', { p_greet: g.id });
+    toast(r.text + (r.bond ? ` · 인연 +${r.bond}` : '')); render();
+  }
   function greetIn(g, here) {
     const f = by(g.from_oc), k = GREETS.find(x => x[0] === g.kind);
     const seen = () => { lsSet('ghr-greet-' + me, Math.max(g.id, +(lsGet('ghr-greet-' + me) || 0))); greetsIn = greetsIn.filter(x => x.id > g.id); };
-    return h('div', { class: 'greet-in' }, h('span', {}, `${f?.name || '?'} · ${k?.[1] || g.kind}`),
+    return h('div', { class: 'greet-in' }, h('span', {}, g.reply_to ? `${f?.name || '?'} · ${greetWord(g.kind)}에 답례` : `${f?.name || '?'} · ${k?.[1] || g.kind}`),
       h('span', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' },
-        f && hereOf(f) === here ? h('button', { class: 'chip', onclick: act(async () => { seen(); await greet(f.id, g.kind); }) }, '답례') : null,
+        !g.reply_to && f && hereOf(f) === here ? h('button', { class: 'chip', onclick: act(async () => { seen(); await greetBack(g); }) }, '답례') : null,
         h('button', { class: 'chip', onclick: () => { seen(); render(); } }, '닫기')));
   }
   // 이곳 칸의 내용. 휴대폰에서는 '이곳' 탭이 같은 내용을 쓴다
@@ -2041,7 +2050,7 @@
   function duelPop(res, side, other, title) {
     const f = res.fight, i = side === 'a' ? 0 : 1, dl = res.delta[side], st = res.stance || {};
     return { mark: '武', kicker: '비무 결과', title,
-      story: f.ko ? `${f.rounds}합 만에 승부가 났습니다.` : `${f.rounds}합을 다 겨뤘습니다.`,
+      story: (f.ko ? `${f.rounds}합 만에 승부가 났습니다.` : `${f.rounds}합을 다 겨뤘습니다.`) + (res.rewarded === false ? ` 오늘 이 상대와는 보상을 ${SET.duelDaily}번 받아, 이번에는 전적만 남습니다.` : ''),
       lines: [['상대', other?.name || '?'], ['자세', `${st[side] || '없음'} 대 ${st[side === 'a' ? 'b' : 'a'] || '없음'}`],
         ['남은 기혈', `${f.end[i]} / ${f.hp[i]}`], ['명성', `+${dl.fame || 0}`], ['깨달음', `+${dl.insight || 0}`]],
       log: f.log };
@@ -2079,14 +2088,18 @@
         `${x.npc ? 'NPC · ' : ''}${x.name} · ${realm(x.lv)} · ${x.weapon} · ${hereOf(x) === hereOf(o) && hereOf(x) ? '같은 곳' : hereOf(x) || '길 위'}`)));
     showCmp(duelPick.to);
     const pk = stancePicker(duelPick.stance, k => { duelPick.stance = k; });
-    const fightLog = r => { const a = by(r.a), b = by(r.b), f = r.f;
+    const fightLog = act(async r => {
+      const row = await q(db.from('duels').select('result').eq('id', r.id).maybeSingle());
+      const a = by(r.a), b = by(r.b), f = row?.result?.fight;
+      if (!f) return toast('대결 기록을 찾을 수 없습니다');
       popup({ mark: '武', kicker: `${a?.name || '?'} 대 ${b?.name || '?'}`, title: !r.win ? '무승부' : `${by(r.win)?.name || '?'}의 승리`,
         story: `${ago(r.t)} · ${f.ko ? `${f.rounds}합 만에` : `${f.rounds}합을 겨룬 끝에`}`,
-        lines: [['자세', `${r.st.a || '없음'} 대 ${r.st.b || '없음'}`], ['남은 기혈', `${f.end[0]} / ${f.hp[0]} · ${f.end[1]} / ${f.hp[1]}`]], log: f.log }); };
+        lines: [['자세', `${r.st.a || '없음'} 대 ${r.st.b || '없음'}`], ['남은 기혈', `${f.end[0]} / ${f.hp[0]} · ${f.end[1]} / ${f.hp[1]}`], r.paid ? null : ['보상', '오늘 보상이 끝난 뒤의 비무']].filter(Boolean), log: f.log });
+    });
     return [ph('비무'),
       incoming.length ? h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, `받은 도전장 ${incoming.length}`),
         h('p', { class: 'desc' }, '자세를 골라 응전하거나, 거절할 수 있습니다. 응전하는 순간 서버가 대결을 치릅니다.'), incoming) : null,
-      sec('도전장 보내기', `상대를 고르고 자세를 하나 정해 도전장을 보냅니다. 상대도 자세를 골라 응전하면 최대 ${SET.fightRounds}합을 겨룹니다. 서로 상대의 자세는 모릅니다. 응전할 때 두 사람이 같은 곳에 있으면 이긴 쪽 명성이 ${SET.sameDuelFame}배입니다.`,
+      sec('도전장 보내기', `상대를 고르고 자세를 하나 정해 도전장을 보냅니다. 상대도 자세를 골라 응전하면 최대 ${SET.fightRounds}합을 겨룹니다. 서로 상대의 자세는 모릅니다. 응전할 때 두 사람이 같은 곳에 있으면 이긴 쪽 명성이 ${SET.sameDuelFame}배입니다. 같은 상대와는 하루 ${SET.duelDaily}번까지 명성 · 깨달음을 받고, 대기 중인 도전장은 ${SET.duelPending}장까지 보낼 수 있습니다.`,
         h('div', { class: 'card' }, sel, cmpBox, pk.el, h('button', { class: 'btn fill', onclick: act(async () => {
           if (!sel.value) return toast('상대를 고르세요');
           if (!pk.get()) return toast('자세를 고르세요');
@@ -2576,7 +2589,7 @@
           lab('기혈 기본', num(D.SET, 'hpBase')), lab('기혈 단계당', num(D.SET, 'hpLv')), lab('기혈 호신당', num(D.SET, 'hpDef', 64, 0.1)), lab('최대 합 수', num(D.SET, 'fightRounds')),
           lab('기본 명중(%)', num(D.SET, 'hitBase')), lab('신법 1당 명중(%)', num(D.SET, 'hitStep', 64, 0.1)), lab('명중 최소(%)', num(D.SET, 'hitMin')), lab('명중 최대(%)', num(D.SET, 'hitMax')),
           lab('호신이 줄이는 피해 비율', num(D.SET, 'dmgDef', 64, 0.05)), lab('피해 흔들림', num(D.SET, 'dmgVar', 64, 0.05)), lab('강타 배율', num(D.SET, 'critMul', 64, 0.1)), lab('선공 합 명중 +(%)', num(D.SET, 'firstHit')),
-          lab('무승부 기혈 차', num(D.SET, 'drawRatio', 64, 0.01)), lab('조우 상대 세기', num(D.SET, 'mobScale', 64, 0.05)), lab('단련 몇 번에 1점', num(D.SET, 'drillNeed')), lab('단련 기력', num(D.SET, 'costDrill')),
+          lab('무승부 기혈 차', num(D.SET, 'drawRatio', 64, 0.01)), lab('같은 상대 하루 보상 횟수', num(D.SET, 'duelDaily')), lab('대기 중 도전장 수', num(D.SET, 'duelPending')), lab('거절 뒤 다시 도전(분)', num(D.SET, 'duelGap')), lab('조우 상대 세기', num(D.SET, 'mobScale', 64, 0.05)), lab('단련 몇 번에 1점', num(D.SET, 'drillNeed')), lab('단련 기력', num(D.SET, 'costDrill')),
           lab('단련 시간(초)', num(D.SET, 'secDrill'))),
         h('p', { class: 'note' }, '기본값으로 시뮬레이션하면 작은 단계 하나 차이에서 약한 쪽이 20% 안팎 이기고, 큰 경지 하나 차이면 거의 이기지 못합니다. 숫자를 크게 바꾸면 이 균형이 달라집니다.')),
       sec('자세', '도전할 때와 응전할 때 고르는 자세입니다. 능력치에 더하는 %입니다. 한 자세만 이득이 크면 모두 그 자세만 고르게 됩니다.',
