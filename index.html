@@ -400,6 +400,28 @@
   .pinfo { margin-top: 16px; }
   .pinfo .kv { margin-top: 14px; }
 
+  /* 강호 사건 */
+  .ev-card { border: 1px solid var(--ink); background: var(--card); padding: 14px 16px; margin-top: 10px; }
+  .ev-card.closed { border-color: var(--line); }
+  .ev-card.closed .meter i { background: var(--sub); }
+  .ev-card .meter { margin: 12px 0 6px; }
+  .ev-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ev-h b { font-family: var(--head); font-size: 16px; }
+  .ev-h small { font-size: 12px; color: var(--sub); white-space: nowrap; }
+  .ev-b { font-size: 13px; margin-top: 6px; }
+  .ev-n { font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+  /* 알림 */
+  .alerts { list-style: none; margin-top: 18px; border-top: 1px solid var(--ink); }
+  .alerts li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .alerts .hj { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); font-family: var(--head); font-size: 14px; color: var(--sub); }
+  .alerts li.new .hj { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+  .alerts .tx > button, .alerts .tx > b { display: block; font-weight: 700; font-size: 14px; text-align: left; padding: 0; }
+  .alerts .tx > button:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .alerts small { display: block; font-size: 12px; color: var(--sub); margin-top: 2px; overflow-wrap: anywhere; }
+  .alerts time { font-size: 12px; color: var(--sub); white-space: nowrap; }
+  .ticker .help.on { background: var(--paper); color: var(--ink); }
+
   /* 안내 (처음 들어온 사람용). 가리키는 칸만 밝게 두고 나머지는 어둡게 */
   .tour-bg { position: fixed; inset: 0; z-index: 35; background: rgba(21, 21, 21, .4); animation: fade .2s; }
   .tour-hl { position: relative; z-index: 36 !important; background-color: var(--card); box-shadow: 0 0 0 4px var(--card), 0 0 0 6px var(--gold) !important; }
@@ -600,7 +622,11 @@
     restGain: 20, restFee: 5, restCool: 60, secSearch: 30, secMeditate: 60, secRest: 300, meditateHours: 0.1,
     stBank: 200, bulkRare: 0.5, bulkFortune: 0.5, bulkQi: 0.7,   // 비축 상한, 몰아서 하기의 특산·기연·내공 비율
     boomRate: 1.5, sameDuelFame: 1.5, rumorGap: 10,
-    duelDaily: 3, duelPending: 3, duelGap: 10,   // 같은 두 사람의 하루 비무 보상 횟수, 대기 중 도전장 수, 거절 · 철회 뒤 다시 도전까지(분)
+    duelDaily: 3, duelPending: 3, duelGap: 10,
+    // 3차: 혈석 단은 큰 경지마다, 동행(인연 점수 · 더하는 %), 몰아서 탐색의 사건 기여 배율, 관계를 청할 수 있는 인연 점수
+    pillPerRealm: 3, companionBond: 15, companionBonus: 20, bulkEvent: 0.5, tieBond: 3,
+    // 경공: 쓸 수 있는 큰 경지(0 삼류, 1 이류, 2 일류...), 하루 횟수, 쿨타임(분), 기력. 토벌형 사건(bossOn 1이면 켜짐), 토벌 쿨타임(분) · 기력
+    qgRealm: 2, qgDaily: 3, qgCool: 60, qgCost: 0, bossOn: 0, bossCool: 30, bossCost: 20,   // 같은 두 사람의 하루 비무 보상 횟수, 대기 중 도전장 수, 거절 · 철회 뒤 다시 도전까지(분)
   };
   const RETREATS = [{ h: 1, luck: 10, dev: 3 }, { h: 4, luck: 15, dev: 8 }, { h: 12, luck: 22, dev: 15 }];
   const WEAPONS = {
@@ -699,6 +725,24 @@
     소환단: ['다음 돌파 성공률 +10%', 60], '정비한 무기': ['다음 비무 공력 +10%', 50], 보양식: ['다음 폐관 내공 +20%', 40], '비급 필사본': ['깨달음 +30', 70],
     설련: ['화산 절벽 눈 속에 피는 연꽃', 60], 독초: ['당가타 습지의 독풀', 40], 진주: ['남해 바닷속 진주', 70], 산삼: ['장백산 백 년 묵은 산삼', 80],
     옥석: ['대막 모래 속 옥돌', 60], 음목: ['귀곡 안개 속 검은 나무', 50], 혈석: ['십만대산의 붉은 돌', 80],
+    설련환: ['다음 돌파 성공률 +15%', 120], 산공독: ['다음 비무 공력 +15%', 90], 진주분: ['기력 +40', 110],
+    산삼탕: ['내공 +폐관 6시간분', 160], 옥간: ['깨달음 +60', 140], '음목 부적': ['다음 비무 호신 +15%', 110],
+    공력단: ['공력이 영구히 1 오른다', 200], 호신단: ['호신이 영구히 1 오른다', 200], 신법단: ['신법이 영구히 1 오른다', 200],
+  };
+  // 비방: 생업과 상관없이 누구나 특산 재료로 만든다
+  const R = mats => ({ mats });
+  const RECIPES = {
+    설련환: R({ 설련: 1, 약초: 2 }), 산공독: R({ 독초: 1, 약초: 1 }), 진주분: R({ 진주: 1, 식재료: 1 }),
+    산삼탕: R({ 산삼: 1, 약초: 2 }), 옥간: R({ 옥석: 1, 먹: 2 }), '음목 부적': R({ 음목: 1, 먹: 1 }),
+    공력단: R({ 혈석: 1, 철광석: 2 }), 호신단: R({ 혈석: 1, 철광석: 2 }), 신법단: R({ 혈석: 1, 철광석: 2 }),
+  };
+  // 물건을 쓸 때의 효과 {k, v}. k: break 다음 돌파 % · duelAtk 다음 비무 공력 % · duelDef 다음 비무 호신 % · retreat 다음 폐관 내공 %
+  //   · insight 깨달음 · qi 내공(폐관 v시간분) · st 기력 · stat 능력치 영구 +1 (v: atk · def · agi, 큰 경지마다 pillPerRealm개까지)
+  const U = (k, v) => ({ k, v });
+  const USES = {
+    소환단: U('break', 10), '정비한 무기': U('duelAtk', 10), 보양식: U('retreat', 20), '비급 필사본': U('insight', 30),
+    설련환: U('break', 15), 산공독: U('duelAtk', 15), 진주분: U('st', 40), 산삼탕: U('qi', 6), 옥간: U('insight', 60), '음목 부적': U('duelDef', 15),
+    공력단: U('stat', 'atk'), 호신단: U('stat', 'def'), 신법단: U('stat', 'agi'),
   };
   const ERRANDS = [
     ['잃어버린 고양이를 찾아 주었다', { silver: 15, fame: 4 }], ['표국 짐을 산 아래까지 날라 주었다', { silver: 30 }],
@@ -764,7 +808,7 @@
     ],
   };
 
-  const CFG = { REALMS, SUBS, TIERS, BREAK_RATE, SET, RETREATS, WEAPONS, STANCES, PATH_NEED, PATH_REALM, GRADES, ARMS_LIST, FORTUNES, JOBS, ITEMS, ERRANDS, MASTERY, MASTERY_XP, MAP, RUMORS };
+  const CFG = { REALMS, SUBS, TIERS, BREAK_RATE, SET, RETREATS, WEAPONS, STANCES, PATH_NEED, PATH_REALM, GRADES, ARMS_LIST, FORTUNES, JOBS, ITEMS, RECIPES, USES, ERRANDS, MASTERY, MASTERY_XP, MAP, RUMORS };
   const DEFAULTS = structuredClone(CFG);
   const replaceIn = (t, s) => { if (Array.isArray(t)) t.splice(0, t.length, ...s); else { Object.keys(t).forEach(k => delete t[k]); Object.assign(t, s); } };
   // DB에 저장된 설정을 덮어씌운다. SET은 새로 생긴 항목이 빠지지 않도록 기본값과 합친다.
@@ -859,6 +903,7 @@
   let me = null;                              // 지금 활동 중인 인물 id
   const letters = new Map(), unread = new Set();
   let logs = [], greetsIn = [], bonds = new Map(), rumors = [], rumorsAt = 0;   // 이곳의 기록, 받은 인사, 인연, 소문판
+  let events = [], ties = [], tiesAt = 0, giftsRecent = [], giftsAt = 0;          // 강호 사건, 맺은 관계, 지난 선물(알림)
 
   const by = id => ocs.find(o => o.id === id);
   const canAct = o => !!(o && user && o.owner === user.id);
@@ -902,6 +947,17 @@
   const restReady = o => { const t = ((o.rest_at || 0) + SET.restCool * 60) * 1000; return t > Date.now() ? t : 0; };
   const ACT_NAME = { search: '탐색', meditate: '운기조식', rest: '휴식', drill: '단련' };
   const ACT_SECS = () => ({ search: SET.secSearch, meditate: SET.secMeditate, rest: SET.secRest, drill: SET.secDrill });
+  // ── 3차: 물건 효과 · 혈석 단 · 강호 사건 · 관계 ──
+  const useText = u => !u ? '' : ({ break: `다음 돌파 성공률 +${u.v}%`, duelAtk: `다음 비무 공력 +${u.v}%`, duelDef: `다음 비무 호신 +${u.v}%`,
+    retreat: `다음 폐관 내공 +${u.v}%`, insight: `깨달음 +${u.v}`, qi: `내공 +폐관 ${u.v}시간분`, st: `기력 +${u.v}`, stat: `${statName(u.v)} 영구 +1` })[u.k] || '';
+  // 혈석 단(능력치 영구 +1): 큰 경지마다 pillPerRealm개까지 쓸 수 있고, 안 쓴 몫은 이어진다
+  const pillCap = o => (rIdx(o.lv) + 1) * SET.pillPerRealm;
+  const pillsLeft = o => Math.max(0, pillCap(o) - (o.pills || 0));
+  const EVENT_KIND = { search: '탐색형', give: '헌납형', boss: '토벌형' };
+  const TIE_KINDS = ['의형제', '사제', '맞수', '숙적', '협연'];
+  const fmtN = v => (Number.isInteger(+v) ? fmt(v) : (+v).toFixed(1));
+  // 관계에서 상대가 viewer에게 무엇인지. 사제는 청한 사람(a)의 자리 a_role로 정한다
+  const tieLabel = (t, viewer) => t.kind !== '사제' ? t.kind : t.a === viewer ? (t.a_role === '스승' ? '제자' : '스승') : t.a_role;
 
   const ERR = { '23505': '이미 쓰이는 이름입니다.', '23514': '입력한 내용의 길이를 확인해 주세요.', '42501': '권한이 없습니다.' };
   const ERR_MSG = [[/row-level security/, '권한이 없어 저장하지 못했습니다.'], [/exceeded the maximum allowed size|Payload too large/i, '파일이 너무 큽니다.']];
@@ -1066,11 +1122,22 @@
     if (letterRows.size > 300) [...letterRows.keys()].sort((a, b) => a - b).slice(0, letterRows.size - 300).forEach(k => letterRows.delete(k));
     return [...letterRows.values()].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
   }
+  // 강호 사건 · 관계 · 지난 선물(알림용). 009 전의 서버에서도 화면이 멈추지 않게 오류는 조용히 넘긴다
+  async function loadEvents() { const { data, error } = await db.rpc('event_list', { p_oc: me }); if (!error) events = data || []; }
+  async function loadTies() { const { data, error } = await db.from('ties').select('*'); tiesAt = Date.now(); if (!error) ties = data; }
+  async function loadGifts() {
+    const { data, error } = await db.from('gifts').select('id, from_name, kind, name, qty, created_at').eq('to_oc', me)
+      .gt('created_at', new Date(Date.now() - 7 * 864e5).toISOString()).order('id', { ascending: false }).limit(30);
+    giftsAt = Date.now(); if (!error) giftsRecent = data;
+  }
   let resultsAt = 0;
   async function loadMine(full = false) {
     if (!me) return;
     // 지난 비무 목록은 처음, 비무 탭을 볼 때, 전체 새로 받기 때만
     const wantResults = full || page === 'duel' || !resultsAt;
+    // 관계와 지난 선물은 2분마다 또는 그것을 보는 화면에서 (강호 사건은 매번: 기한 지난 사건도 이때 마무리된다)
+    const wantTies = full || ['profile', 'alerts'].includes(page) || Date.now() - tiesAt > 120e3;
+    const wantGifts = full || page === 'alerts' || Date.now() - giftsAt > 120e3;
     const [ls, dIn, dOut, done, pend, gifts] = await Promise.all([
       loadLetters(full),
       q(db.from('duels').select('id, challenger, defender, created_at').eq('defender', me).eq('status', 'pending').order('created_at')),
@@ -1078,12 +1145,13 @@
       wantResults ? q(db.rpc('duel_recent')) : null,
       q(db.from('duels').select('*').eq('status', 'done').or(`and(challenger.eq.${me},applied_a.eq.false),and(defender.eq.${me},applied_b.eq.false)`)),
       q(db.from('gifts').select('*').eq('to_oc', me).eq('seen', false).order('created_at')),
+      loadEvents(), wantTies ? loadTies() : null, wantGifts ? loadGifts() : null,
     ]);
     const byOther = new Map(); unread.clear();
     for (const r of ls) {
       const out = r.from_oc === me, other = out ? r.to_oc : r.from_oc;
       if (!byOther.has(other)) byOther.set(other, []);
-      byOther.get(other).push({ id: r.id, me: out, body: r.body, t: r.created_at, fly: out && Date.parse(r.arrive_at) > Date.now() ? hm(r.arrive_at) : null, read: !!r.read_at });
+      byOther.get(other).push({ id: r.id, me: out, body: r.body, t: r.created_at, at: r.arrive_at, fly: out && Date.parse(r.arrive_at) > Date.now() ? hm(r.arrive_at) : null, read: !!r.read_at });
       if (!out && !r.read_at) unread.add(other);
     }
     letters.clear();
@@ -1495,10 +1563,11 @@
   async function doBulk(kind) {
     const o = by(me), lv = o.lv, res = await play('bulk', { p_kind: kind });
     const lines = kind === 'meditate' ? [[energy(lv), `+${fmt(res.qi)}`]]
-      : [...Object.entries(res.items || {}).map(([k, n]) => [k, `+${n}`]), res.silver ? ['은자', `+${res.silver}`] : null, res.insight ? ['깨달음', `+${res.insight}`] : null].filter(Boolean);
+      : [...Object.entries(res.items || {}).map(([k, n]) => [k, `+${n}`]), res.silver ? ['은자', `+${res.silver}`] : null, res.insight ? ['깨달음', `+${res.insight}`] : null, eventLine(res.event)].filter(Boolean);
     popup({ mark: '集', kicker: `몰아서 ${kind === 'meditate' ? '운기조식' : '탐색'}`, title: `${res.n}번`,
       story: lines.length ? '비축해 둔 기력을 한 번에 썼습니다.' : '비축해 둔 기력을 썼지만 건진 것이 없습니다.', lines });
     (res.fortunes || []).forEach(f => fortuneMsg(f, lv));
+    eventDone(res.event); if (res.event) await loadEvents();
     risen(res); render();
   }
   // 짧은 행동이 끝나면 화면이 스스로 결과를 받는다. 다른 창에서 먼저 받았으면 조용히 넘어간다
@@ -1514,7 +1583,8 @@
       const res = await play('act_end');
       if (res.fight) popup(fightPop(res));
       else if (res.out === 'drill' && res.up) popup({ mark: '鍊', kicker: '단련', title: `${statName(res.stat)} +1`, story: res.text });
-      else toast(res.text + (res.fortune ? fortuneMsg(res.fortune, lv) : ''));
+      else toast(res.text + (res.fortune ? fortuneMsg(res.fortune, lv) : '') + (res.event && !res.event.done ? ` · 사건 기여 +${fmtN(res.event.add)}` : ''));
+      eventDone(res.event); if (res.event) await loadEvents();
       risen(res);
     } catch {
       const r = await db.from('ocs').select('*').eq('id', me).maybeSingle(); if (r.data) mergeOc(r.data);
@@ -1588,8 +1658,11 @@
   function whoRow(x) {
     const away = Date.now() - Date.parse(x.updated_at) > 30 * 60e3;
     const state = x.retreat_until ? '폐관 중' : x.act ? `${ACT_NAME[x.act.kind] || ''} 중` : away ? '자리를 비움' : '';
+    // 동행: 인연이 깊은 사람과 같은 곳에 있으면 탐색 · 운기조식 · 사건 기여에 보너스가 붙는다
+    const sc = bonds.get(x.id) || 0, tie = ties.find(t => t.status === 'on' && ((t.a === me && t.b === x.id) || (t.b === me && t.a === x.id)));
     return [h('div', { class: 'who' + (away && !x.retreat_until ? ' away' : '') }, av(x),
-      h('div', {}, h('div', {}, name(x), ' ', bondDots(bonds.get(x.id) || 0)), h('small', {}, `${realm(x.lv)} · ${x.weapon}` + (state ? ` · ${state}` : ''))),
+      h('div', {}, h('div', {}, name(x), ' ', bondDots(sc), sc >= SET.companionBond ? h('span', { class: 'tag g1', style: 'margin-left:6px', title: '탐색 재료 +1 · 운기조식과 사건 기여 +' + SET.companionBonus + '%' }, '동행') : null),
+        h('small', {}, `${realm(x.lv)} · ${x.weapon}` + (tie ? ` · ${tieLabel(tie, me)}` : '') + (state ? ` · ${state}` : ''))),
       h('button', { class: 'chip', onclick: () => { greetOpen = greetOpen === x.id ? null : x.id; renderHere(); if (page === 'here') render(); } }, '인사'),
       h('button', { class: 'chip', onclick: () => go('duel', x.id) }, '비무')),
       greetOpen === x.id ? h('div', { class: 'gmenu' }, GREETS.map(([k, l]) => h('button', { onclick: act(() => greet(x.id, k)) }, l))) : null];
@@ -1608,6 +1681,170 @@
         !g.reply_to && f && hereOf(f) === here ? h('button', { class: 'chip', onclick: act(async () => { seen(); await greetBack(g); }) }, '답례') : null,
         h('button', { class: 'chip', onclick: () => { seen(); render(); } }, '닫기')));
   }
+  // ── 강호 사건 ──
+  const evShown = e => e.kind !== 'boss' || SET.bossOn >= 1;   // 토벌형은 켜 두었을 때만 보인다
+  const eventsAt = place => events.filter(e => evShown(e) && e.place === place && (e.status === 'open' || Date.now() - Date.parse(e.closed_at) < 6 * 3600e3));
+  const eventLine = r => (r && !r.done ? ['사건 기여', `+${fmtN(r.add)}`] : null);
+  function eventDone(r) {
+    if (r?.done) popup({ mark: '事', kicker: '강호 사건', title: '해결', story: `「${r.title}」 사건이 매듭지어졌습니다. 함께한 사람 모두 보상을 받았고, 받은 것은 기록에서 볼 수 있습니다.` });
+  }
+  // 이곳 칸과 지도에서 함께 쓴다. 참여는 그 장소에 있을 때만
+  function eventCard(e, o) {
+    const at = hereOf(o) === e.place, rw = e.reward || {};
+    const top = (e.top || []).map((t, i) => `${i + 1}. ${by(t.oc)?.name || '?'} ${fmtN(t.score)}`).join(' · ');
+    // 끝난 사건은 몇 시간 동안 짧게만 남긴다
+    if (e.status !== 'open') return h('div', { class: 'ev-card closed' },
+      h('div', { class: 'ev-h' }, h('b', {}, e.title), h('small', {}, e.status === 'done' ? '해결' : '실패')),
+      h('p', { class: 'ev-n' }, `함께한 이 ${e.count}명` + (e.mine ? ` · 내 기여 ${fmtN(e.mine)}` : '') + (top ? ` · ${top}` : '')));
+    let act_ = null;
+    if (!at) act_ = h('p', { class: 'ev-n' }, `${e.place}에 가야 함께할 수 있습니다.`);
+    else if (e.kind === 'search') act_ = h('p', { class: 'ev-n' }, `이곳에서 탐색하면 1, 조우에서 이기면 3씩 기여합니다. 몰아서 탐색은 한 번에 ${SET.bulkEvent}씩입니다.`);
+    else if (e.kind === 'give') {
+      const have = o.bag[e.item] || 0, n0 = Math.max(1, Math.min(have, Math.ceil(e.goal - e.progress)));
+      const inp = h('input', { type: 'number', class: 'pick', min: 1, max: n0, value: n0, style: 'width:64px;min-width:0', 'aria-label': '바칠 수' });
+      act_ = h('div', { class: 'row', style: 'margin-top:10px;gap:8px' }, h('span', { style: 'font-size:12px' }, `${e.item} ${have}개 있음`), inp,
+        h('button', { class: 'btn', disabled: !have, onclick: act(async () => {
+          const res = await play('event_give', { p_event: e.id, p_n: Math.max(1, Math.floor(+inp.value) || 1) });
+          toast(`${e.item} ${res.n}개를 바쳤습니다`); eventDone(res.event); await loadMine(); render();
+        }) }, '바치기'));
+    } else if (e.kind === 'boss') {
+      const ready = e.last ? Date.parse(e.last) + SET.bossCool * 60e3 : 0, wait = ready > Date.now();
+      act_ = h('div', { class: 'row', style: 'margin-top:10px;gap:8px' },
+        h('button', { class: 'btn fill', disabled: wait || !!o.act || !!o.retreat_until, onclick: act(async () => {
+          if (tired(o, SET.bossCost)) return;
+          const res = await play('boss_attack', { p_event: e.id }), f = res.fight;
+          popup({ mark: '討', kicker: `토벌 · ${e.title}`, title: +res.dmg > 0 ? `기혈 −${fmtN(res.dmg)}` : '깎지 못했다', story: res.text,
+            lines: [['남은 기혈', `${f.end[0]} / ${f.hp[0]}`]], arm: res.arm, log: f.log });
+          eventDone(res.event); await loadMine(); render();
+        }) }, wait ? ['다시 도전까지 ', h('span', { 'data-until': ready, 'data-done': '곧' })] : '토벌 도전'),
+        h('small', { class: 'mut' }, `기력 ${SET.bossCost} · ${SET.bossCool}분에 한 번`));
+    }
+    return h('div', { class: 'ev-card' },
+      h('div', { class: 'ev-h' }, h('b', {}, e.title), h('small', {}, EVENT_KIND[e.kind])),
+      e.body ? h('p', { class: 'ev-b' }, e.body) : null,
+      h('div', { class: 'meter' }, h('i', { style: `width:${Math.min(100, e.progress / e.goal * 100).toFixed(1)}%` })),
+      h('div', { class: 'under' },
+        h('span', {}, e.kind === 'boss' ? `${e.boss?.name || '우두머리'} 기혈 ${fmtN(e.goal - e.progress)} / ${fmtN(e.goal)}` : e.kind === 'give' ? `${e.item} ${fmtN(e.progress)} / ${fmtN(e.goal)}` : `${fmtN(e.progress)} / ${fmtN(e.goal)}`),
+        h('span', {}, '남은 시간 ', h('span', { 'data-until': Date.parse(e.ends_at), 'data-done': '마감' }))),
+      h('p', { class: 'ev-n' }, `내 기여 ${fmtN(e.mine || 0)} · 함께한 이 ${e.count}명` + (top ? ` · ${top}` : '')),
+      h('p', { class: 'ev-n' }, `참여 ${gainText(rw.part)} · 성공하면 ${gainText(rw.win)} · 공 상위 3명 ${gainText(rw.top)}` + (rw.arm ? ' · 1위는 병기' : '')),
+      act_);
+  }
+
+  // ── 경공: 큰 경지 qgRealm부터 하루 qgDaily번, qgCool분 쿨타임으로 어디든 바로 간다 ──
+  function qgState(o) {
+    const qg = o.qg || {}, used = qg.day === todayKST() ? qg.n || 0 : 0, cool = ((qg.at || 0) + SET.qgCool * 60) * 1000;
+    return { ok: rIdx(o.lv) >= SET.qgRealm, used, left: SET.qgDaily - used, cool: cool > Date.now() ? cool : 0 };
+  }
+  async function qinggong(to) {
+    const st = qgState(by(me));
+    if (!(await ask('경공', `${to}까지 단숨에 날아갑니다. 오늘 ${st.used + 1}번째 경공이고, 다음 경공은 ${SET.qgCool}분 뒤에 쓸 수 있습니다.`, '날아가기'))) return;
+    await play('qinggong', { p_to: to }); mapSel = null; toast(`경공으로 ${to}에 닿았습니다`); render();
+  }
+  function qgButton(o, to) {
+    const st = qgState(o);
+    if (!st.ok || to === hereOf(o) || o.retreat_until || o.act) return null;
+    return h('button', { class: 'btn', disabled: st.left <= 0 || !!st.cool, onclick: act(() => qinggong(to)) },
+      st.left <= 0 ? '경공 · 오늘은 다 씀' : st.cool ? ['경공 · ', h('span', { 'data-until': st.cool, 'data-done': '곧' }), ' 뒤'] : `경공 · 바로 가기 (오늘 ${st.used} / ${SET.qgDaily})`);
+  }
+
+  // ── 관계 맺기: 청하고 받아들이면 맺어진다. 끊거나 거두는 것은 한쪽만으로 된다 ──
+  async function tieDo(fn, args) { const r = await play(fn, args); toast(r.text); await loadTies(); render(); }
+  function tieAnswerRow(t) {
+    const n = by(t.a)?.name || '?';
+    return h('div', { class: 'row', style: 'margin-top:8px;gap:8px' },
+      h('span', { style: 'font-size:13px' }, `${n}${josa(n, '이', '가')} ` + (t.kind === '사제' ? (t.a_role === '스승' ? '제자로 들이고 싶어 합니다.' : '스승으로 모시고 싶어 합니다.') : `${t.kind}${josa(t.kind, '을', '를')} 맺자고 청했습니다.`)),
+      h('button', { class: 'btn fill', onclick: act(() => tieDo('tie_answer', { p_tie: t.id, p_ok: true })) }, '받기'),
+      h('button', { class: 'btn ghost', onclick: act(() => tieDo('tie_answer', { p_tie: t.id, p_ok: false })) }, '거절'));
+  }
+  function tieSec(o) {
+    const own = o.id === me, other = t => by(t.a === o.id ? t.b : t.a);
+    const on = ties.filter(t => t.status === 'on' && (t.a === o.id || t.b === o.id) && other(t));
+    // 나와 맺은 관계에는 끊기 버튼을 둔다 (내 프로필이든 상대 프로필이든)
+    const rows = on.map(t => h('li', {}, name(other(t)), h('span', { class: 'row', style: 'gap:14px;flex-wrap:nowrap' }, h('span', { class: 'mut' }, tieLabel(t, o.id)),
+      t.a === me || t.b === me ? h('button', { class: 'link', onclick: act(async () => {
+        const w = by(t.a === me ? t.b : t.a)?.name || '?';
+        if (!(await ask('관계 끊기', `${w}${josa(w, '과', '와')}의 ${t.kind} 인연을 끊습니다. 두 사람의 기록에 남습니다.`, '끊기'))) return;
+        await tieDo('tie_end', { p_tie: t.id });
+      }) }, '끊기') : null)));
+    const extra = [];
+    if (own) {
+      ties.filter(t => t.status === 'pending' && t.b === me).forEach(t => extra.push(tieAnswerRow(t)));
+      ties.filter(t => t.status === 'pending' && t.a === me && by(t.b)).forEach(t => extra.push(h('div', { class: 'row', style: 'margin-top:8px;gap:12px' },
+        h('span', { class: 'mut', style: 'font-size:13px' }, `${by(t.b).name}에게 ${t.kind === '사제' ? (t.a_role === '스승' ? '제자로 들이기를' : '스승으로 모시기를') : t.kind + josa(t.kind, '을', '를')} 청해 두었습니다.`),
+        h('button', { class: 'link', onclick: act(() => tieDo('tie_end', { p_tie: t.id })) }, '거두기'))));
+    } else if (by(me) && !canAct(o)) {
+      const pair = ties.find(t => (t.a === me && t.b === o.id) || (t.b === me && t.a === o.id)), sc = bonds.get(o.id) || 0;
+      if (pair?.status === 'pending' && pair.a === me) extra.push(h('div', { class: 'row', style: 'margin-top:12px;gap:12px' },
+        h('span', { class: 'mut', style: 'font-size:13px' }, `${pair.kind}${pair.kind === '사제' ? `(내가 ${pair.a_role})` : ''}${josa(pair.kind, '을', '를')} 청해 두었습니다. 받아들이면 맺어집니다.`),
+        h('button', { class: 'link', onclick: act(() => tieDo('tie_end', { p_tie: pair.id })) }, '거두기')));
+      else if (pair?.status === 'pending') extra.push(tieAnswerRow(pair));
+      else if (!pair && sc < SET.tieBond) extra.push(h('p', { class: 'mut', style: 'font-size:13px;margin-top:12px' }, `인연이 ${SET.tieBond}점 이상이면 관계를 청할 수 있습니다. 지금 ${sc}점입니다. 인사, 선물, 비무로 인연이 쌓입니다.`));
+      else if (!pair) {
+        const kind = h('select', { class: 'pick', style: 'min-width:0;width:auto' }, TIE_KINDS.map(k => h('option', { value: k }, k)));
+        const role = h('select', { class: 'pick', style: 'min-width:0;width:auto;display:none' }, h('option', { value: '스승' }, '내가 스승'), h('option', { value: '제자' }, '내가 제자'));
+        kind.addEventListener('change', () => { role.style.display = kind.value === '사제' ? '' : 'none'; });
+        extra.push(h('div', { class: 'row', style: 'margin-top:12px;gap:8px' }, kind, role, h('button', { class: 'btn', onclick: act(async () => {
+          const k = kind.value;
+          await play('tie_ask', { p_to: o.id, p_kind: k, p_role: k === '사제' ? role.value : null });
+          toast(`${o.name}에게 ${k}${josa(k, '을', '를')} 청했습니다. 서신으로도 알렸습니다`); await loadTies(); render();
+        }) }, '관계 청하기')));
+      }
+    }
+    if (!own && !rows.length && !extra.length) return null;
+    return sec('맺은 관계', own ? `두 사람이 서로 받아들여 맺은 관계입니다. 인연이 ${SET.tieBond}점 이상인 사람의 인물 정보에서 의형제 · 사제 · 맞수 · 숙적 · 협연을 청할 수 있습니다.` : '',
+      rows.length ? h('ul', { class: 'ties' }, rows) : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 맺은 관계가 없습니다.'), extra);
+  }
+
+  // ── 알림 모아보기: 이미 받아 둔 것을 한곳에 모은다. 마지막으로 열어 본 뒤에 생긴 것만 센다 (인물마다, 이 브라우저에) ──
+  function alertItems() {
+    const out = [], now = Date.now(), day = 864e5, T = t => Date.parse(t) || 0, nm = id => by(id)?.name || '?';
+    for (const [other, list] of letters) if (unread.has(other)) {
+      const last = [...list].reverse().find(x => !x.me);
+      if (last) out.push({ t: T(last.at || last.t), hj: '信', text: `${nm(other)}의 서신`, sub: last.body.slice(0, 40), go: () => go('letters', other) });
+    }
+    duelsIn.forEach(d => out.push({ t: T(d.t), hj: '武', text: `${nm(d.from)}의 도전장`, sub: '자세를 골라 응전하거나 거절합니다', go: () => go('duel') }));
+    greetsIn.forEach(g => out.push({ t: T(g.created_at), hj: '揖', go: () => go(MQ.matches ? 'here' : 'map'),
+      text: g.reply_to ? `${nm(g.from_oc)}의 답례 · ${greetWord(g.kind)}` : `${nm(g.from_oc)}의 인사 · ${GREETS.find(x => x[0] === g.kind)?.[1] || g.kind}` }));
+    giftsRecent.forEach(g => out.push({ t: T(g.created_at), hj: '禮', text: `${g.from_name}의 선물`, go: () => go('life'),
+      sub: g.kind === 'item' ? `${g.name} ${g.qty}개` : g.kind === 'arm' ? `병기 「${g.name}」` : `은자 ${fmt(g.qty)}` }));
+    results.filter(r => (r.a === me || r.b === me) && now - T(r.t) < day).forEach(r => {
+      const w = nm(r.a === me ? r.b : r.a);
+      out.push({ t: T(r.t), hj: '武', go: () => go('duel'), text: `${w}${josa(w, '과', '와')}의 비무 · ${!r.win ? '무승부' : r.win === me ? '승리' : '패배'}` });
+    });
+    const myPosts = new Set(allLoaded().filter(p => p.oc === me).map(p => p.id));
+    allLoaded().filter(p => p.reply_to && myPosts.has(p.reply_to) && p.oc !== me && now - T(p.t) < 3 * day)
+      .forEach(p => out.push({ t: T(p.t), hj: '棧', text: `${nm(p.oc)}의 답글`, sub: p.body.slice(0, 40), go: () => go('thread', p.reply_to) }));
+    ties.filter(t => t.status === 'pending' && t.b === me).forEach(t => out.push({ t: T(t.created_at), hj: '緣', text: '관계를 청함', el: tieAnswerRow(t) }));
+    ties.filter(t => t.status === 'on' && t.a === me && now - T(t.answered_at) < 3 * day).forEach(t => {
+      const w = nm(t.b);
+      out.push({ t: T(t.answered_at), hj: '緣', text: `${w}${josa(w, '이', '가')} 관계를 받아들임`, sub: t.kind === '사제' ? `사제 · ${tieLabel(t, me)}` : t.kind, go: () => go('profile', t.b) });
+    });
+    events.filter(evShown).forEach(e => {
+      const go_ = () => { mapSel = e.place; go(MQ.matches && hereOf(by(me)) === e.place ? 'here' : 'map'); };
+      if (e.status === 'open' && now - T(e.created_at) < day) out.push({ t: T(e.created_at), hj: '事', text: `강호 사건 · ${e.place}`, sub: e.title, go: go_ });
+      if (e.status !== 'open' && e.mine > 0) out.push({ t: T(e.closed_at), hj: '事', text: `강호 사건 ${e.status === 'done' ? '해결' : '실패'} · ${e.title}`, sub: '받은 보상은 기록에서 볼 수 있습니다', go: go_ });
+    });
+    return out.filter(x => x.t).sort((a, b) => b.t - a.t).slice(0, 60);
+  }
+  const alertSeen = () => +(lsGet('ghr-alert-' + me) || 0);
+  const alertCount = () => { const s = alertSeen(); return alertItems().filter(x => x.t > s).length; };
+  function pAlerts() {
+    const items = alertItems(), seen = alertSeen();
+    // 관계 청함과 지난 선물은 자주 받지 않으므로, 알림을 열 때 오래됐으면 새로 받는다
+    if (Date.now() - tiesAt > 30e3 || Date.now() - giftsAt > 30e3)
+      Promise.all([loadTies(), loadGifts()]).then(() => { if (page === 'alerts' && !typing()) render(); }).catch(() => {});
+    // 보고 있는 것까지를 '봤음'으로 둔다 (서버 시각 기준이라 내 기기 시계가 틀려도 맞다)
+    if (items.length && items[0].t > seen) setTimeout(() => { if (page === 'alerts') { lsSet('ghr-alert-' + me, Math.max(seen, items[0].t)); renderTicker(); } }, 1500);
+    return [ph('알림'),
+      h('p', { class: 'mut', style: 'font-size:13px;margin-top:14px' }, '받은 것을 한곳에 모았습니다. 누르면 그 화면으로 갑니다.'),
+      items.length ? h('ul', { class: 'alerts' }, items.map(x => h('li', { class: x.t > seen ? 'new' : '' },
+        h('span', { class: 'hj' }, x.hj),
+        h('div', { class: 'tx' }, x.go ? h('button', { onclick: x.go }, x.text) : h('b', {}, x.text), x.sub ? h('small', {}, x.sub) : null, x.el || null),
+        h('time', {}, ago(new Date(x.t).toISOString())))))
+        : empty('알림이 없습니다.'),
+      h('p', { class: 'note' }, '안 읽은 서신, 받은 도전장 · 인사, 7일 안의 선물, 하루 안의 비무 결과, 3일 안에 내 글에 달린 답글, 관계 청함, 강호 사건을 모아 보여 줍니다.')];
+  }
   // 이곳 칸의 내용. 휴대폰에서는 '이곳' 탭이 같은 내용을 쓴다
   function hereBody() {
     const o = by(me), here = hereOf(o), out = [];
@@ -1623,6 +1860,9 @@
     }
     const pl = placeOf(here) || { id: here, kind: '', risk: 0 };
     out.push(placeHead(pl, here), pl.desc ? h('p', { class: 'place-d' }, pl.desc) : null);
+    // 강호 사건은 할 수 있는 일 위에 둔다 (하던 일이 있으면 그 아래에)
+    const evs = eventsAt(here), evBox = evs.length ? [h('div', { class: 'sub-h' }, '강호 사건'), evs.map(e => eventCard(e, o))] : null;
+    if (!o.retreat_until && !o.act) out.push(evBox);
     if (o.retreat_until) {
       out.push(h('div', { class: 'doing' }, h('div', { class: 'mut', style: 'font-size:12px' }, `${o.retreat_hours}시간 폐관 중`),
         h('div', { class: 'big', 'data-until': o.retreat_until }),
@@ -1634,6 +1874,7 @@
     } else {
       out.push(h('div', { class: 'sub-h' }, '할 수 있는 일'), actRows(o, pl));
     }
+    if (o.retreat_until || o.act) out.push(evBox);
     if (greetsIn.length) out.push(h('div', { class: 'sub-h' }, '받은 인사'), greetsIn.slice(-5).map(g => greetIn(g, here)));
     const people = ocs.filter(x => x.id !== me && hereOf(x) === here);
     out.push(h('div', { class: 'sub-h' }, `이곳 사람들 ${people.length}`),
@@ -1655,6 +1896,7 @@
     const items = [];
     const n = posts.find(p => p.kind === 'notice' && Date.now() - Date.parse(p.t) < 3 * 864e5);
     if (n) items.push(['공지', n.body]);
+    events.filter(e => e.status === 'open' && evShown(e)).slice(0, 3).forEach(e => items.push(['사건', `${e.place} · ${e.title} · ${fmtN(e.progress)} / ${fmtN(e.goal)}`]));
     const t = marketTown();
     if (t) items.push(['시세', `${t} 시세 오름 · 그곳에서 팔면 ${SET.boomRate}배`]);
     posts.filter(p => p.kind === 'game' && Date.now() - Date.parse(p.t) < 6 * 3600e3).slice(0, 5).forEach(p => items.push(['소식', p.body]));
@@ -1666,10 +1908,11 @@
     return items;
   }
   function renderTicker() {
-    const items = tickerItems(), it = items.length ? items[tickI % items.length] : null;
+    const items = tickerItems(), it = items.length ? items[tickI % items.length] : null, an = alertCount();
     $('#ticker').replaceChildren(h('span', { class: 'clk', id: 'clk' }, clockText()),
       h('span', { class: 'run' }, it ? [h('b', {}, it[0]), it[1]] : ''),
       h('span', { class: 'cnt' }, items.length ? `${tickI % items.length + 1} / ${items.length}` : ''),
+      h('button', { class: 'help' + (an ? ' on' : ''), onclick: () => go('alerts'), 'aria-label': an ? `새 알림 ${an}개` : '알림' }, an ? `알림 ${an}` : '알림'),
       h('button', { class: 'help', onclick: () => startTour() }, '안내'));
   }
 
@@ -1970,7 +2213,8 @@
         h('div', {}, hpEl, h('p', {}, free ? '칸에 숫자를 적거나 + · 최대로 정한 뒤 배분하기를 누릅니다. 배분한 점수는 되돌릴 수 없습니다.' : '배분할 점수가 없습니다. 경지가 오르면 생깁니다.')),
         commitRow),
       h('p', { class: 'note' }, (canDrill ? `지금 있는 ${here}에서 단련할 수 있습니다. ` : `단련은 ${spots} 같은 수련 장소에서 할 수 있습니다. `)
-        + `한 번에 ${secs(SET.secDrill)}, 기력 ${SET.costDrill}이 들고, ${SET.drillNeed}번 하면 그 능력치가 1 오릅니다. 한 능력치에만 몰기보다 두세 능력치에 나누는 편이 대개 낫습니다.`));
+        + `한 번에 ${secs(SET.secDrill)}, 기력 ${SET.costDrill}이 들고, ${SET.drillNeed}번 하면 그 능력치가 1 오릅니다. 한 능력치에만 몰기보다 두세 능력치에 나누는 편이 대개 낫습니다.`
+        + ` 혈석으로 만드는 공력단 · 호신단 · 신법단도 단련처럼 1씩 올립니다. 지금까지 ${o.pills || 0}개 썼고, 이번 경지까지 ${pillCap(o)}개 쓸 수 있습니다.`));
     sync();
     return out;
   }
@@ -2097,7 +2341,7 @@
   function fightPop(res) {
     const f = res.fight, mob = f.b;
     return { mark: '戰', kicker: `조우 · ${res.foe}`, title: res.win ? '물리쳤다' : res.win === false ? '밀려났다' : '승부 없음', story: res.text,
-      lines: [['상대', `${res.foe} · ${realmFull(mob.lv)}`], ['남은 기혈', `${f.end[0]} / ${f.hp[0]}`]], log: f.log };
+      lines: [['상대', `${res.foe} · ${realmFull(mob.lv)}`], ['남은 기혈', `${f.end[0]} / ${f.hp[0]}`], eventLine(res.event)].filter(Boolean), log: f.log };
   }
   function pDuel(target) {
     const o = by(me), myWeapon = o.weapon;
@@ -2260,6 +2504,7 @@
         h('div', {}, h('small', {}, '누적 수련'), h('b', {}, o.hours + '시간'))),
       info.length ? sec('기본', '', h('dl', { class: 'info' }, info.map(([k, v]) => h('div', {}, h('dt', {}, k), h('dd', {}, v))))) : null,
       prose.map(([k, v]) => sec(k, '', h('p', { class: 'prose' }, v))),
+      tieSec(o),
       o.ties.length ? sec('인연', '', h('ul', { class: 'ties' }, o.ties.filter(t => by(t.oc)).map(t => h('li', {}, name(by(t.oc)), h('span', { class: 'mut' }, t.rel))))) : null,
       sec('객잔에 남긴 글', '', own_posts.length ? own_posts.map(p => postEl(p)) : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 남긴 글이 없습니다.'))];
   }
@@ -2302,7 +2547,7 @@
       sec('뒷사람', '객잔의 뒷사람 탭에 이 이름으로 표시됩니다. 비워 두면 \'' + o.name + '의 뒷사람\'으로 나옵니다.',
         h('div', { class: 'form' }, inp('nick', '뒷사람 닉네임'))),
       sec('이야기', '', h('div', { class: 'form' }, area('look', '외견'), area('persona', '성격'), area('story', '배경'))),
-      sec('인연', '여기 적은 인연은 내 프로필에 표시됩니다.', tiesBox),
+      sec('인연', '여기 적은 인연은 내 프로필에 표시됩니다. 상대도 받아들이는 관계(의형제 · 사제 · 맞수 · 숙적 · 협연)는 상대의 인물 정보에서 청합니다.', tiesBox),
       h('div', { class: 'row', style: 'margin-top:32px' },
         h('button', { class: 'btn fill', onclick: act(async () => {
           if (draft.file) {
@@ -2368,6 +2613,18 @@
       }))))
       : h('p', { class: 'note', style: 'margin-top:0' }, o.job === '상인' ? '상인은 물건을 만들지 않는 대신, 보따리의 물건을 두 배 값에 팝니다.' : '이 생업은 만드는 물건이 없습니다.');
 
+    // 비방: 생업과 상관없이 누구나 특산 재료로 만든다
+    const recipeTbl = Object.keys(RECIPES).length ? h('div', { class: 'tbl' }, h('table', {},
+      h('thead', {}, h('tr', {}, ['물품', '재료 (가진 수)', '효과', ''].map(t => h('th', {}, t)))),
+      h('tbody', {}, Object.entries(RECIPES).map(([item, r]) => {
+        const mats = Object.entries(r.mats || {}), ok = mats.length && mats.every(([k, n]) => (o.bag[k] || 0) >= n);
+        return h('tr', {}, h('td', { class: 'w' }, item), h('td', {}, mats.map(([k, n]) => `${k} ${n} (${o.bag[k] || 0})`).join(' · ')),
+          h('td', { class: 'mut' }, useText(USES[item]) || itemOf(item)[0]),
+          h('td', {}, h('button', { class: 'link', disabled: !ok, onclick: act(async () => {
+            if (tired(o, SET.costCraft)) return;
+            const res = await play('life_recipe', { p_item: item }); toast(item + ' 완성'); risen(res); render();
+          }) }, ok ? '만들기' : '재료 부족')));
+      })))) : h('p', { class: 'mut', style: 'font-size:13px' }, '아직 비방이 없습니다.');
     const items = Object.entries(o.bag).filter(([, n]) => n > 0);
     const price = k => Math.round(itemOf(k)[1] * (o.job === '상인' ? 2 : 1) * (boom ? SET.boomRate : 1));
     const giftSel = onPick => h('select', { class: 'pick', style: 'min-width:0;width:auto;font-size:13px;padding:0', onchange: act(async e => { const v = e.target.value; e.target.value = ''; if (v) await onPick(v); }) },
@@ -2377,13 +2634,14 @@
       await play(fn, { p_to: to, ...args });
       toast(`선물을 보냈습니다 · ${by(to).name}에게 ${text}`); render();
     };
-    const USE = { 소환단: '다음 돌파 성공률 +10%', '정비한 무기': '다음 비무 공력 +10%', 보양식: '다음 폐관 내공 +20%', '비급 필사본': '깨달음 +30' };
+    const USE = Object.fromEntries(Object.keys(USES).map(k => [k, useText(USES[k])]).filter(([, t]) => t));
+    const pill = k => USES[k]?.k === 'stat';
     const bag = items.length ? h('div', { class: 'tbl' }, h('table', {},
       h('thead', {}, h('tr', {}, ['물품', '수', '설명', ''].map(t => h('th', {}, t)))),
       h('tbody', {}, items.map(([k, n]) => h('tr', {},
-        h('td', { class: 'w' }, k), h('td', {}, n), h('td', { class: 'mut' }, itemOf(k)[0]),
+        h('td', { class: 'w' }, k), h('td', {}, n), h('td', { class: 'mut' }, itemOf(k)[0] + (pill(k) ? ` · 이번 경지까지 ${o.pills || 0} / ${pillCap(o)}` : '')),
         h('td', {}, h('span', { class: 'row', style: 'flex-wrap:nowrap;gap:14px' },
-          USE[k] ? h('button', { class: 'link', onclick: act(async () => {
+          USE[k] && pill(k) && !pillsLeft(o) ? h('span', { class: 'mut', style: 'font-size:13px' }, '경지가 오르면') : USE[k] ? h('button', { class: 'link', onclick: act(async () => {
             const res = await play('item_use', { p_item: k }); toast(`${k} 사용 · ${USE[k]}`); risen(res); render();
           }) }, '쓰기') : null,
           town ? h('button', { class: 'link', onclick: act(async () => {
@@ -2409,6 +2667,7 @@
     return [ph('생활'), head,
       sec('생업', `생업 일과 객잔 의뢰는 마을에서 할 수 있습니다. 기력은 ${SET.stMax}까지 차고, 한 시간에 ${SET.stRegen}씩 다시 찹니다. 재료는 지도에서 탐색으로 모읍니다.`, acts),
       sec('제작', `${o.job}의 솜씨로 물건을 만듭니다. 한 번 만들 때 기력 ${SET.costCraft}이 듭니다.`, craft),
+      sec('비방', `생업과 상관없이 누구나 특산 재료로 만듭니다. 한 번 만들 때 기력 ${SET.costCraft}이 듭니다. 혈석으로 만드는 단약은 큰 경지마다 ${SET.pillPerRealm}개까지 쓸 수 있고, 안 쓴 몫은 다음 경지로 이어집니다.`, recipeTbl),
       sec('보따리', (town ? (boom ? `오늘은 ${here}의 시세가 올라 ${SET.boomRate}배 값에 팝니다. ` : '') + '물건을 쓰거나 팔 수 있습니다. ' : '물건을 쓸 수 있고, 팔기는 마을에서만 할 수 있습니다. ')
         + '선물은 바로 상대에게 들어가고, 알리는 서신이 전서구로 따로 갑니다.', bag),
       sec('병기', '패용한 병기 하나만 비무에 쓰입니다. 내 무기와 종류가 다른 병기는 선물할 수 있습니다.', armsTbl),
@@ -2524,6 +2783,15 @@
         h('p', { class: 'desc' }, '화면을 새로 올린 뒤 누르면, 지금 접속한 사람들의 화면이 30초 안에 새 판으로 바뀝니다. 글을 쓰던 사람은 다 올린 뒤에 바뀝니다.'),
         h('div', { class: 'row' }, h('button', { class: 'btn fill', onclick: act(reloadAll) }, '모두 새로고침'),
           reloadSeen ? h('span', { class: 'mut', style: 'font-size:12px' }, `마지막 요청 · ${ago(reloadSeen)}`) : null)),
+      sec('강호 사건', `장소에 사건을 엽니다. 탐색형은 그곳에서 탐색 · 조우로, 헌납형은 정한 물품을 바쳐서${SET.bossOn >= 1 ? ', 토벌형은 우두머리 기혈을 깎아서' : ''} 목표를 채웁니다. 기여한 사람은 성공하든 실패하든 참여 보상을 받고, 성공하면 성공 보상을, 기여 상위 3명은 공 보상을 더 받습니다. 1위는 병기를 얻을 수 있습니다. 기한이 지나면 실패로 마칩니다.`,
+        evForm(),
+        events.filter(e => e.status === 'open').map(e => h('div', { class: 'res', style: 'grid-template-columns:1fr auto' },
+          h('div', {}, h('b', {}, `${e.place} · ${e.title}`), h('div', { class: 'mut', style: 'font-size:12px' }, `${EVENT_KIND[e.kind]} · ${fmtN(e.progress)} / ${fmtN(e.goal)} · ${e.count}명 · ${new Date(e.ends_at).getMonth() + 1}.${new Date(e.ends_at).getDate()} ${hm(e.ends_at)} 마감`)),
+          h('div', { class: 'row', style: 'gap:14px;justify-content:flex-end' }, [[true, '성공으로', '기여한 사람 모두 참여 보상과 성공 보상을 받고, 상위 3명은 공 보상을 받습니다.'], [false, '실패로', '기여한 사람은 참여 보상만 받습니다.']].map(([ok, l, d]) =>
+            h('button', { class: 'link', onclick: act(async () => {
+              if (!(await ask('사건 마치기', `「${e.title}」 사건을 ${l} 마칩니다. ${d}`, `${l} 마치기`))) return;
+              await q(db.rpc('event_close', { p_id: e.id, p_ok: ok })); await loadAll(false); await loadMine(); toast('사건을 마쳤습니다'); render();
+            }) }, `${l} 마치기`)))))),
       h('div', { class: 'sec', style: 'margin-top:28px' }, h('h2', {}, '경지의 문'),
         h('p', { class: 'desc' }, '문을 열면 시대 사건 공지가 함께 올라갑니다.'),
         TIERS.filter(t => t.gate).map(t => h('div', { class: 'bt', style: 'margin-top:10px' },
@@ -2543,6 +2811,38 @@
     ];
   }
 
+  // 운영: 강호 사건 열기. 입력은 evDraft에 남아 화면을 다시 그려도 지워지지 않는다
+  const evDraft = { kind: 'search', place: '', title: '', body: '', goal: 30, hours: 48, item: '식재료', boss: '혈마', bossLv: 10, bossMul: 1.3,
+    part: { silver: 20, insight: 5 }, win: { silver: 60, fame: 10, insight: 20 }, top: { fame: 10, insight: 10 }, arm: true };
+  function evForm() {
+    const D = evDraft;
+    if (!placeOf(D.place)) D.place = MAP.places[0]?.id || '';
+    if (D.kind === 'boss' && SET.bossOn < 1) D.kind = 'search';
+    const kinds = ['search', 'give'].concat(SET.bossOn >= 1 ? ['boss'] : []).map(k => [k, EVENT_KIND[k]]);
+    const kindSel = h('select', { onchange: e => { D.kind = e.target.value; if (D.kind === 'boss' && D.goal < 200) D.goal = 1500; if (D.kind !== 'boss' && D.goal >= 200) D.goal = 30; render(); } },
+      kinds.map(([v, l]) => h('option', { value: v, selected: v === D.kind }, l)));
+    const boss = D.kind === 'boss', give = D.kind === 'give';
+    return h('div', { class: 'cfg-card' }, h('div', { class: 'form' },
+      lab('종류', kindSel), lab('장소', fSel(D, 'place', MAP.places.map(p => [p.id, p.id]))),
+      lab('제목', fIn(D, 'title', 'text', { maxlength: 40, placeholder: '예: 낙양 객잔의 쥐 떼' }), 'wide'),
+      lab('설명', fIn(D, 'body', 'text', { maxlength: 300, placeholder: '적지 않아도 됩니다' }), 'wide'),
+      lab(boss ? '우두머리 기혈' : give ? '모을 수' : '목표 기여', num(D, 'goal', 80)), lab('기한(시간)', num(D, 'hours', 64, 1)),
+      give ? lab('바칠 물품', fSel(D, 'item', Object.keys(ITEMS).map(k => [k, k]))) : null,
+      boss ? [lab('우두머리 이름', fIn(D, 'boss', 'text', { maxlength: 20 })), lab('우두머리 단계', num(D, 'bossLv')), lab('능력치 배율', num(D, 'bossMul', 64, 0.1))] : null,
+      lab('참여 · 은자', num(D.part, 'silver')), lab('참여 · 깨달음', num(D.part, 'insight')),
+      lab('성공 · 은자', num(D.win, 'silver')), lab('성공 · 명성', num(D.win, 'fame')), lab('성공 · 깨달음', num(D.win, 'insight')),
+      lab('상위 3명 · 명성', num(D.top, 'fame')), lab('상위 3명 · 깨달음', num(D.top, 'insight')),
+      lab('1위 병기', h('span', { class: 'chk' }, fChk(D, 'arm'), '얻을 수 있음'))),
+      h('div', { class: 'row', style: 'margin-top:14px' }, h('button', { class: 'btn fill', onclick: act(async () => {
+        if (!D.title.trim()) return toast('제목을 적어 주세요');
+        if (!(await ask('사건 열기', `${D.place}에 「${D.title.trim()}」 사건을 ${D.hours}시간 동안 엽니다. 객잔에 공지가 함께 올라갑니다.`, '열기'))) return;
+        await q(db.rpc('event_open', { p_kind: D.kind, p_place: D.place, p_title: D.title, p_body: D.body, p_goal: D.goal, p_hours: D.hours,
+          p_item: give ? D.item : null, p_boss: boss ? { name: D.boss, lv: D.bossLv, mul: D.bossMul } : null,
+          p_reward: { part: D.part, win: D.win, top: D.top, arm: D.arm } }));
+        D.title = ''; D.body = ''; await loadAll(false); await loadMine(); toast('강호 사건을 열었습니다'); render();
+      }) }, '사건 열기')));
+  }
+
   // ── 운영 > 설정 ─────────────────────────────
   // 입력은 바로 cfgDraft에 반영되고, 저장을 눌러야 실제 설정에 들어간다
   const fIn = (obj, key, type = 'text', attrs = {}) => h('input', { type, value: obj[key] ?? '', ...attrs,
@@ -2560,8 +2860,12 @@
   };
   const del = fn => h('button', { class: 'link', onclick: () => { if (fn() !== false) render(); } }, '빼기');
   const num = (o, k, w = 64, step) => fIn(o, k, 'number', { style: `width:${w}px`, step });
+  // "약초 3, 먹 1" → { 약초: 3, 먹: 1 }
+  const parseMats = t => Object.fromEntries(t.split(',').map(x => x.trim().split(/\s+/)).filter(p => p[0]).map(([m, n]) => [m, +n || 1]));
+  const USE_KINDS = [['break', '다음 돌파 성공률(%)'], ['duelAtk', '다음 비무 공력(%)'], ['duelDef', '다음 비무 호신(%)'], ['retreat', '다음 폐관 내공(%)'],
+    ['insight', '깨달음'], ['qi', '내공(폐관 n시간분)'], ['st', '기력'], ['stat', '능력치 영구 +1']];
 
-  const CFG_TABS = [['realm', '경지'], ['retreat', '폐관 · 확률'], ['weapon', '무기'], ['path', '무공 · 비무'], ['arms', '병기'], ['fortune', '기연'], ['life', '생활'], ['map', '지도 · 소문']];
+  const CFG_TABS = [['realm', '경지'], ['retreat', '폐관 · 확률'], ['weapon', '무기'], ['path', '무공 · 비무'], ['arms', '병기'], ['fortune', '기연'], ['life', '생활'], ['together', '사건 · 관계'], ['map', '지도 · 소문']];
   const CFG_EDITORS = {
     realm: D => [
       sec('경지', '경지 이름과, 다음 경지로 넘어갈 때의 돌파 성공률입니다.',
@@ -2669,7 +2973,7 @@
         grid(['생업', '한자', '일', '은자', '명성', '깨달음', '만드는 물건', '재료'], Object.entries(D.JOBS).map(([k, J]) => {
           const [item, mats] = Object.entries(J.craft)[0] || ['', {}];
           const st = { item, mats: Object.entries(mats).map(([m, n]) => `${m} ${n}`).join(', ') };
-          const sync = () => { J.craft = st.item ? { [st.item]: Object.fromEntries(st.mats.split(',').map(s => s.trim().split(/\s+/)).filter(p => p[0]).map(([m, n]) => [m, +n || 1])) } : {}; };
+          const sync = () => { J.craft = st.item ? { [st.item]: parseMats(st.mats) } : {}; };
           return [h('b', { class: 'serif' }, k), fIn(J, 'hj', 'text', { style: 'width:36px;min-width:0' }), fIn(J, 'work', 'text', { style: 'width:90px' }),
             num(J.gain, 'silver', 56), num(J.gain, 'fame', 56), num(J.gain, 'insight', 56),
             h('input', { value: st.item, placeholder: '없음', style: 'width:100px', oninput: e => { st.item = e.target.value.trim(); sync(); } }),
@@ -2678,12 +2982,38 @@
       sec('물품', '물품 설명과 팔 때 받는 값입니다.',
         grid(['물품', '설명', '값', ''], Object.entries(D.ITEMS).map(([k, it]) => [h('b', { class: 'serif' }, k), fIn(it, 0, 'text', { style: 'min-width:200px' }), num(it, 1), del(() => { delete D.ITEMS[k]; })])),
         addRow('새 물품 이름', v => { if (D.ITEMS[v]) return toast('이미 있는 물품입니다'); D.ITEMS[v] = ['', 10]; render(); })),
+      sec('비방', '누구나 특산 재료로 만드는 물건입니다. 재료는 "설련 1, 약초 2"처럼 적습니다. 새 비방을 더하면 물품 목록에도 더해집니다.',
+        grid(['물품', '재료', ''], Object.entries(D.RECIPES).map(([k, r]) => [h('b', { class: 'serif' }, k),
+          h('input', { value: Object.entries(r.mats || {}).map(([m, n]) => `${m} ${n}`).join(', '), placeholder: '설련 1, 약초 2', style: 'width:220px', oninput: e => { r.mats = parseMats(e.target.value); } }),
+          del(() => { delete D.RECIPES[k]; })])),
+        addRow('새 비방 물품 이름', v => { if (D.RECIPES[v]) return toast('이미 있는 비방입니다'); D.RECIPES[v] = { mats: {} }; if (!D.ITEMS[v]) D.ITEMS[v] = ['', 10]; render(); })),
+      sec('물건 효과', '보따리에서 쓰기를 누를 때의 효과입니다. 능력치 영구 +1은 큰 경지마다 정한 수까지만 쓸 수 있습니다 (사건 · 관계 탭).',
+        grid(['물품', '효과', '값', ''], Object.entries(D.USES).map(([k, u]) => [h('b', { class: 'serif' }, k),
+          h('select', { onchange: e => { u.k = e.target.value; u.v = u.k === 'stat' ? 'atk' : 10; render(); } }, USE_KINDS.map(([v, l]) => h('option', { value: v, selected: v === u.k }, l))),
+          u.k === 'stat' ? fSel(u, 'v', STATS.map(([s, n]) => [s, n])) : num(u, 'v', 64, u.k === 'qi' ? 0.5 : 1),
+          del(() => { delete D.USES[k]; })])),
+        addRow('효과를 붙일 물품 이름', v => { if (!D.ITEMS[v]) return toast('물품 목록에 먼저 더해 주세요'); if (D.USES[v]) return toast('이미 효과가 있는 물품입니다'); D.USES[v] = { k: 'insight', v: 10 }; render(); })),
       sec('객잔 의뢰', '의뢰를 맡으면 이 중 하나가 무작위로 나옵니다.',
         grid(['내용', '은자', '명성', '깨달음', ''], D.ERRANDS.map((e, i) => [fIn(e, 0, 'text', { style: 'min-width:240px' }), num(e[1], 'silver', 56), num(e[1], 'fame', 56), num(e[1], 'insight', 56), del(() => { D.ERRANDS.splice(i, 1); })])),
         addLink('+ 의뢰 더하기', () => D.ERRANDS.push(['새 의뢰를 마쳤다', { silver: 10 }]))),
       sec('숙련', '기력은 지도 · 소문 탭에서 정합니다.',
         grid(['숙련', '필요 경험'], D.MASTERY.map((m, i) => [fIn(D.MASTERY, i, 'text', { style: 'width:100px' }), num(D.MASTERY_XP, i)]))),
     ],
+    together: D => {
+      const S = D.SET;
+      return [
+        sec('강호 사건', '사건은 운영 > 시대 사건에서 엽니다. 토벌형은 켜 두어야 열 수 있고, 꺼 두면 사람들에게 보이지 않습니다.',
+          h('div', { class: 'form' },
+            lab('토벌형', h('span', { class: 'chk' }, h('input', { type: 'checkbox', checked: S.bossOn >= 1, onchange: e => { S.bossOn = e.target.checked ? 1 : 0; } }), '켜기')),
+            lab('토벌 쿨타임(분)', num(S, 'bossCool')), lab('토벌 기력', num(S, 'bossCost')), lab('몰아서 탐색 1번당 기여', num(S, 'bulkEvent', 64, 0.1)))),
+        sec('동행과 관계', '같은 곳에 인연이 이만큼 깊은 사람이 있으면 동행이 되어, 탐색 재료가 1 더 나오고 운기조식 내공과 사건 기여가 보너스만큼 더 오릅니다.',
+          h('div', { class: 'form' }, lab('동행이 되는 인연', num(S, 'companionBond')), lab('동행 보너스(%)', num(S, 'companionBonus')), lab('관계를 청할 수 있는 인연', num(S, 'tieBond')))),
+        sec('경공', '이 경지부터 하루 정한 번수만큼, 쿨타임을 두고 이동 시간 없이 어디든 갑니다.',
+          h('div', { class: 'form' }, lab('쓸 수 있는 경지', fSel(S, 'qgRealm', D.REALMS.map((r, i) => [i, r]), true)), lab('하루 횟수', num(S, 'qgDaily')), lab('쿨타임(분)', num(S, 'qgCool')), lab('기력', num(S, 'qgCost')))),
+        sec('혈석 단', '공력단 · 호신단 · 신법단처럼 능력치를 영구히 올리는 물건을 큰 경지마다 몇 개까지 쓸 수 있는지입니다. 안 쓴 몫은 다음 경지로 이어집니다.',
+          h('div', { class: 'form' }, lab('큰 경지마다', num(S, 'pillPerRealm')))),
+      ];
+    },
     // 지도와 소문 문구는 표가 깊어 JSON으로 고친다. 잘못 적으면 테두리가 붉어지고 마지막으로 맞았던 값이 남는다
     map: D => {
       const json = key => {
@@ -2783,6 +3113,7 @@
         svg.append(sv('path', { d: `M${x - 6} ${y - 15} h12 l-6 9 z`, fill: INK }));
       }
     }
+    const evAt = new Set(events.filter(e => e.status === 'open' && evShown(e)).map(e => e.place));
     MAP.places.forEach(p => {
       const isHere = p.id === here, isNb = nb.has(p.id), sel = p.id === mapSel;
       svg.append(sv('g', { class: 'node', onclick: () => { mapSel = p.id; render(); } },
@@ -2790,6 +3121,7 @@
         sv('rect', { x: p.x - 5 * z, y: p.y - 5 * z, width: 10 * z, height: 10 * z, fill: isHere ? INK : '#fff', stroke: isHere || isNb ? INK : SUB }),
         sv('text', { x: p.x, y: p.y + 9 + 12 * z, 'font-size': 12 * z, 'text-anchor': 'middle', fill: p.risk >= 2 ? RED : isHere || isNb ? INK : SUB, 'font-weight': isHere ? 700 : 400 }, p.id),
         cnt[p.id] ? sv('text', { x: p.x + 6 + 4 * z, y: p.y - 6, 'font-size': 10 * z, fill: SUB }, cnt[p.id]) : null,
+        evAt.has(p.id) ? sv('text', { x: p.x - 8 - 5 * z, y: p.y - 6, 'font-size': 12 * z, 'font-weight': 700, fill: RED, 'text-anchor': 'middle' }, '事') : null,
         isHere ? sv('path', { d: `M${p.x - 6} ${p.y - 21} h12 l-6 9 z`, fill: INK }) : null,
         sv('rect', { x: p.x - 24, y: p.y - 14, width: 48, height: 42, fill: 'transparent' })));
     });
@@ -2818,14 +3150,16 @@
           h('p', { class: 'mut', style: 'font-size:12px;margin-top:8px' }, `끝까지 가기를 고르면 ${r.path.length - 2}곳을 지나 창을 닫아도 시간에 맞춰 도착합니다. 가다가 다음 곳에서 멈출 수 있습니다.`))
           : h('p', { class: 'note' }, '이어진 길이 없습니다.');
       }
+      const qb = P.id !== here ? qgButton(o, P.id) : null;
       info = h('div', { class: 'card pinfo' }, placeHead(P, P.id), h('p', { class: 'place-d' }, P.desc || ''),
         h('ul', { class: 'kv' },
           h('li', {}, h('span', {}, '나는 것'), h('span', {}, [P.item, P.rare].filter(Boolean).join(' · ') || '—')),
           h('li', {}, h('span', {}, '할 수 있는 일'), h('span', {}, KIND_DO[P.kind] || '탐색')),
           h('li', {}, h('span', {}, '지금 있는 사람'), h('span', {}, people.length ? people.map(x => x.name).join(', ') : '없음'))),
-        way);
+        way, qb ? h('div', { class: 'row', style: 'margin-top:10px' }, qb, h('small', { class: 'mut' }, '이동 시간 없이 바로 닿습니다')) : null,
+        eventsAt(P.id).map(e => eventCard(e, o)));
     }
-    return [ph('강호 지도'), h('p', { class: 'mut', style: 'font-size:13px;margin-top:14px' }, '이웃한 곳으로 한 곳씩 가거나, 먼 곳을 눌러 끝까지 한 번에 갈 수 있습니다. 장소를 누르면 자세히 보입니다. 붉은 이름은 위험한 곳입니다.'), svg, info];
+    return [ph('강호 지도'), h('p', { class: 'mut', style: 'font-size:13px;margin-top:14px' }, `이웃한 곳으로 한 곳씩 가거나, 먼 곳을 눌러 끝까지 한 번에 갈 수 있습니다. 장소를 누르면 자세히 보입니다. 붉은 이름은 위험한 곳이고, 事는 강호 사건이 열린 곳입니다. ${REALMS[SET.qgRealm] || '높은 경지'}에 이르면 경공으로 하루 ${SET.qgDaily}번 어디든 바로 갈 수 있습니다.`), svg, info];
   }
 
   // ── 소문 ────────────────────────────────────
@@ -2880,11 +3214,12 @@
     NAV.filter(([p]) => !NAV_M.some(([m]) => m === p) && (p !== 'admin' || isAdmin)).map(([p, hj, l]) => {
       const n = badge(p);
       return h('button', { class: 'opt', onclick: () => go(p) }, h('b', {}, `${hj} ${l}`), n ? h('small', {}, `새 소식 ${n}`) : null);
-    }), h('button', { class: 'opt', onclick: () => startTour() }, h('b', {}, '? 안내'), h('small', {}, '처음 안내를 다시 봅니다')))];
+    }), h('button', { class: 'opt', onclick: () => go('alerts') }, h('b', {}, '告 알림'), h('small', {}, alertCount() ? `새 알림 ${alertCount()}` : '받은 것을 한곳에서 봅니다')),
+    h('button', { class: 'opt', onclick: () => startTour() }, h('b', {}, '? 안내'), h('small', {}, '처음 안내를 다시 봅니다')))];
 
   const PAGES = {
     map: pMap, timeline: pTimeline, thread: pThread, train: pTrain, duel: pDuel, life: pLife, letters: pLetters, rumor: pRumor,
-    people: pPeople, profile: pProfile, admin: pAdmin, here: pHere, log: pLog, more: pMore,
+    people: pPeople, profile: pProfile, admin: pAdmin, here: pHere, log: pLog, more: pMore, alerts: pAlerts,
   };
 
   // 남은 시간을 세고, 끝나는 순간 한 번만 처리한다: 짧은 행동은 결과를 받고, 폐관·이동은 화면을 다시 그린다
