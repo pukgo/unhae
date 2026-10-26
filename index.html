@@ -169,7 +169,9 @@
   .step { display: flex; align-items: center; border: 1px solid var(--ink); }
   .step button { width: 30px; height: 30px; font-size: 16px; line-height: 1; }
   .step button:disabled { color: var(--deco); cursor: default; }
-  .step span { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .step input { width: 46px; height: 30px; border: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); background: none; text-align: center; font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; outline: none; -moz-appearance: textfield; appearance: textfield; }
+  .step input:focus { background: var(--soft); }
+  .step input::-webkit-inner-spin-button, .step input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   .dxp { display: inline-flex; gap: 3px; margin-left: 6px; vertical-align: 1px; }
   .dxp i { width: 7px; height: 7px; border: 1px solid var(--ink); }
   .dxp i.f { background: var(--ink); }
@@ -789,16 +791,16 @@
   const ptsEarned = o => (o.lv - 1) * SET.statPerLv;
   const ptsFree = o => Math.max(0, ptsEarned(o) - (o.atk || 0) - (o.def || 0) - (o.agi || 0));
   const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n);
-  // 대결에 쓰는 실제 수치. 서버 game.fighter와 같은 식이다 (자세 · 정비한 무기는 대결 때만)
+  // 대결에 쓰는 실제 수치. 서버 game.fighter와 같은 식이다 (자세 · 정비한 무기는 대결 때만). 배분하지 않은 점수는 쓰이지 않는다
   function statsOf(o, stance = null, duel = false) {
-    const ev = ptsFree(o) / 3, dr = o.drill || {}, st = STANCES[stance] || {};
+    const dr = o.drill || {}, st = STANCES[stance] || {};
     const mul = 1 + SET.realmMul * rIdx(o.lv) + SET.pathStat * (o.path || 0) / 100;
     const g = o.equip && o.equip.type === o.weapon ? GRADES[gradeIdx(o.equip.grade)] : null;
-    const raw = k => SET.statBase + (o[k] || 0) + (dr[k] || 0) + ev;
+    const raw = k => SET.statBase + (o[k] || 0) + (dr[k] || 0);
     const r1 = v => Math.round(v * 10) / 10;
     const atk = r1(raw('atk') * (mul + (st.atk || 0) / 100 + (g?.bonus || 0) + (duel ? (o.duelBuff || 0) / 100 : 0)));
     const def = r1(raw('def') * (mul + (st.def || 0) / 100)), agi = r1(raw('agi') * (mul + (st.agi || 0) / 100));
-    return { atk, def, agi, hp: Math.round(SET.hpBase + SET.hpLv * (o.lv - 1) + def * SET.hpDef), raw: { atk: raw('atk'), def: raw('def'), agi: raw('agi') }, ev, mul };
+    return { atk, def, agi, hp: Math.round(SET.hpBase + SET.hpLv * (o.lv - 1) + def * SET.hpDef), raw: { atk: raw('atk'), def: raw('def'), agi: raw('agi') }, mul };
   }
   const USABLE = ['소환단', '정비한 무기', '보양식', '비급 필사본'];
   const GAIN_LABEL = { silver: '은자', fame: '명성', insight: '깨달음' };
@@ -1853,47 +1855,77 @@
             h('td', { class: 'mut' }, fortuneDesc(f)), h('td', {}, f.w)))))),
         h('p', { class: 'note' }, `기연이 일어날 확률은 폐관 ${RETREATS.map(x => `${x.h}시간 ${x.luck}%`).join(' · ')}, 탐색 ${(MAP.search.find(x => x.k === 'fortune')?.w || []).map((w, i) => `${RISK[i]} ${w}%`).join(' · ')}, 객잔 의뢰 ${SET.rateErrand}%입니다. 병기가 확정이 아닌 기연에도 ${SET.armExtra}% 확률로 이름 붙은 병기가 따라옵니다. 병기 등급은 ${GRADES.map(g => `${g.name} ${g.odds}%`).join(' · ')}의 비율로 나오며, ${GRADES.filter(g => g.unique).map(g => g.name).join(' · ')}은 강호에 한 자루씩만 있습니다.`))];
   }
-  // 능력치: 점수 배분은 되돌릴 수 없어서, +/−로 먼저 정해 본 뒤 한 번 더 묻고 배분한다
+  // 능력치: 점수는 넣은 곳만 오른다. 배분은 되돌릴 수 없어서, 칸마다 넣을 점수를 정해 본 뒤 한 번 더 묻고 배분한다
+  // 숫자를 적는 동안 화면을 다시 그리면 입력 칸이 지워지므로, 값이 바뀌면 숫자만 고쳐 쓴다(sync)
   let allocDraft = { atk: 0, def: 0, agi: 0 }, allocFor = null;
   function statSec(o) {
     if (allocFor !== o.id) { allocDraft = { atk: 0, def: 0, agi: 0 }; allocFor = o.id; }
-    const free = ptsFree(o), used = allocDraft.atk + allocDraft.def + allocDraft.agi, left = free - used;
-    const preview = { ...o, atk: o.atk + allocDraft.atk, def: o.def + allocDraft.def, agi: o.agi + allocDraft.agi };
-    const S = statsOf(preview), S0 = statsOf(o), dr = o.drill || {}, dx = o.dxp || {};
+    const free = ptsFree(o), dr = o.drill || {}, dx = o.dxp || {}, S0 = statsOf(o);
     const here = hereOf(o), canDrill = placeOf(here)?.kind === '수련' && !o.act && !o.retreat_until;
     const n1 = v => (Number.isInteger(v) ? String(v) : v.toFixed(1));
     const secs = t => (t < 60 ? `${t}초` : `${Math.round(t / 60)}분`);
-    const bump = (k, n) => { allocDraft[k] = Math.max(0, allocDraft[k] + n); render(); };
-    // 정해 본 배분으로 바뀌는 값. 남은 점수가 셋에 나뉘어 있어서, 한 곳에 넣으면 다른 둘은 조금 내려간다
-    const dlt = k => { const d = Math.round((S[k] - S0[k]) * 10) / 10; return used && d ? h('span', { class: 'plus', style: d < 0 ? 'color:var(--sub)' : '' }, `${d > 0 ? '+' : '−'}${n1(Math.abs(d))}`) : null; };
+    const used = () => STATS.reduce((n, [k]) => n + allocDraft[k], 0);
+    const ui = {};
+    const hpEl = h('b'), leftEl = h('span'), commitBtn = h('button', { class: 'btn fill', onclick: () => commit() });
+    const commitRow = h('div', { class: 'row' },
+      h('button', { class: 'btn ghost', onclick: () => { STATS.forEach(([k]) => { allocDraft[k] = 0; }); sync(); } }, '취소'), commitBtn);
+    function sync() {
+      const pv = { ...o }; STATS.forEach(([k]) => { pv[k] = o[k] + allocDraft[k]; });
+      const S = statsOf(pv), left = free - used();
+      STATS.forEach(([k]) => {
+        const u = ui[k], d = Math.round((S[k] - S0[k]) * 10) / 10;
+        u.v.textContent = n1(S[k]); u.plus.textContent = d > 0 ? `+${n1(d)}` : ''; u.al.textContent = pv[k];
+        if (u.inp && document.activeElement !== u.inp) u.inp.value = allocDraft[k];
+        if (u.minus) { u.minus.disabled = !allocDraft[k]; u.add.disabled = left <= 0; u.max.disabled = left <= 0; }
+      });
+      hpEl.textContent = `기혈 ${S.hp}`;
+      leftEl.textContent = free ? `남은 점수 ${left} / ${free}` : '';
+      commitRow.style.display = used() ? '' : 'none'; commitBtn.textContent = `${used()}점 배분하기`;
+    }
+    // 한 칸에 넣을 점수. 다른 칸에 정해 둔 점수를 빼고 남은 만큼까지만
+    const put = (k, n) => { allocDraft[k] = Math.max(0, Math.min(free - (used() - allocDraft[k]), Math.floor(Number(n) || 0))); sync(); };
+    // 남은 점수를 셋에 고르게 (나머지 1~2점은 공력 · 호신 차례로)
+    const spread = () => { const left = free - used(), q3 = Math.floor(left / 3); STATS.forEach(([k], i) => { allocDraft[k] += q3 + (i < left % 3 ? 1 : 0); }); sync(); };
     const commit = act(async () => {
+      if (!used()) return;
       const parts = STATS.filter(([k]) => allocDraft[k]).map(([k, nm]) => `${nm} +${allocDraft[k]}`).join(', ');
       if (!(await ask('점수 배분', `${parts}. 배분한 점수는 되돌릴 수 없습니다.`, '배분하기'))) return;
-      for (const [k] of STATS) if (allocDraft[k]) await play('stat_up', { p_stat: k, p_n: allocDraft[k] });
+      await play('stat_add', { p_atk: allocDraft.atk, p_def: allocDraft.def, p_agi: allocDraft.agi });
       allocDraft = { atk: 0, def: 0, agi: 0 }; toast('점수를 배분했습니다'); render();
     });
-    const rows = STATS.map(([k, nm, hj, desc]) => h('div', { class: 'stat' },
-      h('div', { class: 'hj' }, hj),
-      h('div', { style: 'min-width:0' },
-        h('b', {}, nm, h('span', { class: 'v' }, n1(S[k])), dlt(k)),
-        h('small', {}, `${desc} · 기본 ${SET.statBase} + 배분 ${preview[k]}` + (dr[k] ? ` + 단련 ${dr[k]}` : '') + (S.ev ? ` + 남은 점수 ${ptsFree(preview)}÷3` : '') + (S.mul !== 1 ? ` × ${S.mul.toFixed(2)}` : '')),
-        h('small', {}, `단련 ${dx[k] || 0} / ${SET.drillNeed}`, h('span', { class: 'dxp' }, Array.from({ length: SET.drillNeed }, (_, i) => h('i', { class: i < (dx[k] || 0) ? 'f' : '' }))))),
-      h('div', { class: 'side' },
-        free ? h('div', { class: 'step' },
-          h('button', { disabled: !allocDraft[k], 'aria-label': `${nm} 빼기`, onclick: () => bump(k, -1) }, '−'),
-          h('span', {}, allocDraft[k]),
-          h('button', { disabled: left <= 0, 'aria-label': `${nm} 더하기`, onclick: () => bump(k, 1) }, '+')) : null,
-        canDrill ? h('button', { class: 'btn', onclick: act(() => startDrill(k)) }, '단련') : null)));
+    const rows = STATS.map(([k, nm, hj, desc]) => {
+      const u = ui[k] = { v: h('span', { class: 'v' }), plus: h('span', { class: 'plus' }), al: h('span') };
+      if (free) {
+        u.inp = h('input', { type: 'number', min: 0, max: free, inputmode: 'numeric', 'aria-label': `${nm}에 넣을 점수`, value: allocDraft[k],
+          // 남은 점수보다 크게 적으면 칸의 숫자도 바로 남은 만큼으로 고친다 (비워 둔 칸은 0으로 치고 그대로 둔다)
+          oninput: e => { put(k, e.target.value); if (e.target.value !== '' && Number(e.target.value) !== allocDraft[k]) e.target.value = allocDraft[k]; },
+          onchange: e => { e.target.value = allocDraft[k]; }, onblur: e => { e.target.value = allocDraft[k]; }, onfocus: e => e.target.select() });
+        u.minus = h('button', { 'aria-label': `${nm} 1 빼기`, onclick: () => put(k, allocDraft[k] - 1) }, '−');
+        u.add = h('button', { 'aria-label': `${nm} 1 더하기`, onclick: () => put(k, allocDraft[k] + 1) }, '+');
+        u.max = h('button', { class: 'chip', onclick: () => put(k, free) }, '최대');
+      }
+      return h('div', { class: 'stat' },
+        h('div', { class: 'hj' }, hj),
+        h('div', { style: 'min-width:0' },
+          h('b', {}, nm, u.v, u.plus),
+          h('small', {}, `${desc} · 기본 ${SET.statBase} + 배분 `, u.al, (dr[k] ? ` + 단련 ${dr[k]}` : '') + (S0.mul !== 1 ? ` × ${S0.mul.toFixed(2)}` : '')),
+          h('small', {}, `단련 ${dx[k] || 0} / ${SET.drillNeed}`, h('span', { class: 'dxp' }, Array.from({ length: SET.drillNeed }, (_, i) => h('i', { class: i < (dx[k] || 0) ? 'f' : '' }))))),
+        h('div', { class: 'side' },
+          free ? h('div', { class: 'step' }, u.minus, u.inp, u.add) : null, free ? u.max : null,
+          canDrill ? h('button', { class: 'btn', onclick: act(() => startDrill(k)) }, '단련') : null));
+    });
     const spots = MAP.places.filter(p => p.kind === '수련').map(p => p.id).join(' · ');
-    return sec('능력치', `작은 단계가 오를 때마다 점수 ${SET.statPerLv}점을 얻습니다. 지금까지 ${ptsEarned(o)}점을 얻었고, 배분할 점수는 ${free}점입니다.`,
+    const out = sec('능력치', `작은 단계가 오를 때마다 점수 ${SET.statPerLv}점을 얻습니다. 점수는 넣은 능력치만 올리고, 넣지 않은 점수는 쓰이지 않습니다.`,
+      free ? h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' },
+        h('span', { style: 'font-size:14px' }, leftEl), h('button', { class: 'btn', onclick: spread }, '남은 점수 고르게 나누기')) : null,
       h('div', { class: 'stats' }, rows),
       h('div', { class: 'bt', style: 'margin-top:16px' },
-        h('div', {}, h('b', {}, `기혈 ${S.hp}`), h('p', {}, free ? '배분하지 않은 점수는 대결 때 세 능력치에 고르게 나뉘어 쓰입니다. 배분한 점수는 되돌릴 수 없습니다.' : '배분할 점수가 없습니다. 경지가 오르면 생깁니다.')),
-        used ? h('div', { class: 'row' },
-          h('button', { class: 'btn ghost', onclick: () => { allocDraft = { atk: 0, def: 0, agi: 0 }; render(); } }, '취소'),
-          h('button', { class: 'btn fill', onclick: commit }, `${used}점 배분하기`)) : null),
+        h('div', {}, hpEl, h('p', {}, free ? '칸에 숫자를 적거나 + · 최대로 정한 뒤 배분하기를 누릅니다. 배분한 점수는 되돌릴 수 없습니다.' : '배분할 점수가 없습니다. 경지가 오르면 생깁니다.')),
+        commitRow),
       h('p', { class: 'note' }, (canDrill ? `지금 있는 ${here}에서 단련할 수 있습니다. ` : `단련은 ${spots} 같은 수련 장소에서 할 수 있습니다. `)
         + `한 번에 ${secs(SET.secDrill)}, 기력 ${SET.costDrill}이 들고, ${SET.drillNeed}번 하면 그 능력치가 1 오릅니다. 한 능력치에만 몰기보다 두세 능력치에 나누는 편이 대개 낫습니다.`));
+    sync();
+    return out;
   }
   function pathSec(o, r) {
     const P = pathOf(o.weapon), st = o.path || 0, done = st >= P.stages.length;
